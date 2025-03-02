@@ -33,7 +33,7 @@ namespace TfmrLib
 
         public override Matrix<double> Calc_Cmatrix()
         {
-            double eps_0 = 8.854e-12;
+            double eps_oil = 1.0;
 
             var M = Matrix<double>.Build;
 
@@ -54,26 +54,26 @@ namespace TfmrLib
                 // TODO: How to handle segments above and below
                 if (i == (num_discs - 1))
                 {
-                    C_abv = eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_abv = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) /  eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_abv = Constants.eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
+                    C_abv = Constants.eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) /  eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
                     n_abv = i - 1;
-                    C_bel = eps_0 * eps_oil * t_cond / dist_to_ground;
+                    C_bel = Constants.eps_0 * eps_oil * t_cond / dist_to_ground;
                     n_bel = -1;
                     //Console.WriteLine($"Last (bottom) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else if (i == 0) // If first disc, above is tank, below is next disc
                 {
-                    C_abv = eps_0 * eps_oil * t_cond / dist_to_ground;
+                    C_abv = Constants.eps_0 * eps_oil * t_cond / dist_to_ground;
                     n_abv = -1;
-                    C_bel = eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_bel = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_bel = Constants.eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
+                    C_bel = Constants.eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
                     n_bel = i + 1;
                     //Console.WriteLine($"First (top) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else
                 {
-                    C_abv = C_bel = eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_abv = C_bel = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_abv = C_bel = Constants.eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
+                    C_abv = C_bel = Constants.eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
                     n_abv = i - 1;
                     n_bel = i + 1;
                     //Console.WriteLine($"Middle Disc: C_abv={C_abv} C_bel={C_bel}");
@@ -89,18 +89,18 @@ namespace TfmrLib
                     // If first turn in section, left is inner winding or core, right is next turn
                     if ((j == 0 && !out_to_in) || (j == (turns_per_disc - 1) && out_to_in))
                     {
-                        C_lt = eps_0 * eps_paper * h_cond / dist_to_ground;
-                        C_rt = eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
+                        C_lt = Constants.eps_0 * eps_paper * h_cond / dist_to_ground;
+                        C_rt = Constants.eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
 
                     }
                     else if ((j == (turns_per_disc - 1) && !out_to_in) || (j == 0 && out_to_in)) // If last turn in section, left is previous turn, right is outer winding or tank
                     {
-                        C_lt = eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
-                        C_rt = eps_0 * eps_paper * h_cond / dist_to_ground;
+                        C_lt = Constants.eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
+                        C_rt = Constants.eps_0 * eps_paper * h_cond / dist_to_ground;
                     }
                     else
                     {
-                        C_lt = C_rt = eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
+                        C_lt = C_rt = Constants.eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
                     }
 
                     int disc_abv = i - 1;
@@ -190,26 +190,24 @@ namespace TfmrLib
 
         private double CalcSelfInductance(double h, double w, double r_avg, double f)
         {
-            double mu_0 = 4 * Math.PI * 1e-7;
             double mu_r = 1.0;
-            double sigma = 5.8e7; // Conductivity of copper (S/m)
+            double sigma = 1.0 / rho_c; // Conductivity of copper (S/m)
             double GMD = Math.Exp(0.5 * Math.Log(h * h + w * w) + 2 * w / (3 * h) * Math.Atan(h / w) + 2 * h / (3 * w) * Math.Atan(w / h) - w * w / (12 * h * h) * Math.Log(1 + h * h / (w * w)) - h * h / (12 * w * w) * Math.Log(1 + w * w / (h * h)) - 25 / 12);
             // Internal inductance
-            double L_int_low = mu_0 * mu_r / (8 * Math.PI);  // Low-frequency internal inductance
+            double L_int_low = Constants.mu_0 * mu_r / (8 * Math.PI);  // Low-frequency internal inductance
             double omega = 2 * Math.PI * f;      // Angular frequency
-            double delta = Math.Sqrt(2 / (omega * mu_0 * mu_r * sigma));  // Skin depth
+            double delta = Math.Sqrt(2 / (omega * Constants.mu_0 * mu_r * sigma));  // Skin depth
             double L_int = L_int_low * Math.Min(1, delta / (GMD / 2));  // Smooth transition
-            double L_s = L_int + mu_0 * r_avg * (Math.Log(8 * r_avg / GMD) - 2);
+            double L_s = L_int + Constants.mu_0 * r_avg * (Math.Log(8 * r_avg / GMD) - 2);
             //Console.WriteLine($"r_avg: {r_avg} GMD: {GMD} L_s: {L_s / 1e-9} L_s/l: {L_s / (2 * Math.PI * r_avg) / 1e-9}");
             return L_s;
         }
 
         private double CalcInductanceCoaxLoops(double r_a, double z_a, double r_b, double z_b)
         {
-            double mu_0 = 4 * Math.PI * 1e-7;
             double d = Math.Abs(z_b - z_a);
             double k = Math.Sqrt(4 * r_a * r_b / ((r_a + r_b) * (r_a + r_b) + d * d));
-            double L_ab = 2 * mu_0 / k * Math.Sqrt(r_a * r_b) * ((1 - k * k / 2) * Elliptic.EllipticK(k) - Elliptic.EllipticE(k));
+            double L_ab = 2 * Constants.mu_0 / k * Math.Sqrt(r_a * r_b) * ((1 - k * k / 2) * Elliptic.EllipticK(k) - Elliptic.EllipticE(k));
             return L_ab;
         }
 
