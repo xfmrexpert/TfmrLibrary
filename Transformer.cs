@@ -25,18 +25,10 @@ namespace TfmrLib
             var geometry = new Geometry();
 
             // Setup axis and external boundaries
-            phyAxis = 1;
-            phyExtBdry = 2;
-            if (RestartNumbersPerDimension)
-            {
-                phyAir = 1;
-                phyInf = 2;
-            }
-            else
-            {
-                phyAir = 3;
-                phyInf = 4;
-            }
+            phyAxis = geometry.NextLineTag; // 1;
+            phyExtBdry = geometry.NextLineTag; // 2;
+            phyAir = geometry.NextSurfaceTag;
+            phyInf = geometry.NextSurfaceTag;
 
             // Left boundary (axis if core radius is 0)
             var pt_origin = geometry.AddPoint(r_core, 0, 0.1);
