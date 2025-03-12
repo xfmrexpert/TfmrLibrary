@@ -23,6 +23,7 @@ namespace TfmrLib
         public Geometry GenerateGeometry(bool RestartNumbersPerDimension = true)
         {
             var geometry = new Geometry();
+            geometry.RestartNumberingPerDimension = RestartNumbersPerDimension;
 
             // Setup axis and external boundaries
             phyAxis = geometry.NextLineTag; // 1;
@@ -48,10 +49,10 @@ namespace TfmrLib
             outer_bdry.AttribID = phyExtBdry;
 
             List<GeomLineLoop> conductorins_bdrys = new List<GeomLineLoop>();
-            int startTag = 0; 
+            
             foreach (Winding wdg in Windings)
             {
-                wdg.GenerateGeometry(ref geometry, startTag, RestartNumbersPerDimension);
+                conductorins_bdrys.AddRange(wdg.GenerateGeometry(ref geometry));
             }
 
             var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys.ToArray());

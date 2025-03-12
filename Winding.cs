@@ -95,7 +95,7 @@ namespace TfmrLib
             return (r, z);
         }
 
-        public GeomLineLoop[] GenerateGeometry(ref Geometry geometry, int startTag, bool RestartNumbersPerDimension)
+        public GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
         {
             bool include_ins = true;
 
@@ -116,21 +116,14 @@ namespace TfmrLib
                 (double r, double z) = GetTurnMidpoint(i);
                 z = z - z_offset;
                 var conductor_bdry = geometry.AddRoundedRectangle(r, z, h_cond, t_cond, r_cond_corner, 0.0004);
-                if (RestartNumbersPerDimension)
-                {
-                    conductor_bdry.AttribID = i + startTag + 1; // Line, starts after phyExtBdry
-                }
-                else
-                {
-                    conductor_bdry.AttribID = i + 2 * num_turns + startTag + 1; // Line, starts after phyInf
-                }
-                phyTurnsCondBdry[i] = conductor_bdry.AttribID; // Line, starts after phyExtBdry
+                
+                phyTurnsCondBdry[i] = conductor_bdry.AttribID = geometry.NextLineTag;
 
                 if (include_ins)
                 {
                     var insulation_bdry = geometry.AddRoundedRectangle(r, z, h_cond + 2 * t_ins, t_cond + 2 * t_ins, r_cond_corner + t_ins, 0.003);
                     var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                    insulation_surface.AttribID = phyTurnsIns[i] = i + num_turns + startTag + 1; // Surface, starts after turn surfaces
+                    insulation_surface.AttribID = phyTurnsIns[i] = geometry.NextSurfaceTag;
                     conductorins_bdrys[i] = insulation_bdry;
                 }
                 else
@@ -139,7 +132,7 @@ namespace TfmrLib
                 }
                 
                 var conductor_surface = geometry.AddSurface(conductor_bdry);
-                conductor_surface.AttribID = phyTurnsCond[i] = i + startTag + 1; // Surface, starts after phyInf
+                conductor_surface.AttribID = phyTurnsCond[i] = geometry.NextSurfaceTag;
             }
 
             return conductorins_bdrys;
