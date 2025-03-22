@@ -39,11 +39,11 @@ namespace TfmrLib
         protected abstract void Initialize();
 
         // Should return complex vector of calculated voltage (magnitude and phase) at each turn
-        public abstract Vector_c CalcResponseAtFreq(double f);
+        public abstract (Complex Z_term, Vector_c V_EndOfTurn) CalcResponseAtFreq(double f);
 
         // Impedances passed here are per unit length
         // C matrix should be in self/mutual form, not Maxwell form
-        public List<double[]> CalcResponse(IProgress<int> progress = null)
+        public (List<Complex>, List<double[]>) CalcResponse(IProgress<int> progress = null)
         {
             Initialize();
 
@@ -51,17 +51,18 @@ namespace TfmrLib
             var freqs = Generate.LogSpaced(NumSteps, Math.Log10(MinFreq), Math.Log10(MaxFreq));
 
             List<Vector_c> V_turn = [];
-            List<Complex> Y = [];
+            List<Complex> Z = [];
             int totalSteps = freqs.Count();
             int i = 0;
             foreach (var f in freqs)
             {
                 ++i;
                 //Console.WriteLine($"Calculating at {f / 1e6}MHz");
-                var gain_at_freq = CalcResponseAtFreq(f);
+                var (Z_term, gain_at_freq) = CalcResponseAtFreq(f);
                 //var gain_at_freq = vi_vec / vi_vec[0];
                 V_turn.Add(gain_at_freq); //[n: 2 * n]
                 //Y.Add(vi_vec[2 * Wdg.num_turns]); //Original code took absolute val of vi_vec[2*n]
+                Z.Add(Z_term);
                 progress?.Report((int)((i + 1) / (double)totalSteps * 100));
             }
 
@@ -75,14 +76,14 @@ namespace TfmrLib
             for (int f = 0; f < NumSteps; f++)
             {
                 // Enumerate each turn
-                for (int t = 0; t < Wdg.num_turns; t++)
+                for (int t = 0; t < (Wdg.num_turns-1); t++)
                 {
                     //Translate to dB
                     V_response[t][f] = 20d * Math.Log10(V_turn[f][t].Magnitude);
                 }
             }
 
-            return V_response;
+            return (Z, V_response);
         }
     }
 }

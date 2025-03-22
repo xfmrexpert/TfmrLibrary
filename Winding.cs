@@ -16,6 +16,8 @@ namespace TfmrLib
         public double eps_paper; //3.5;
         public double rho_c; //ohm-m;
 
+        public double ins_loss_factor = 0.03;
+
         public double dist_wdg_tank_right;
         public double dist_wdg_tank_top;
         public double dist_wdg_tank_bottom;
@@ -160,7 +162,7 @@ namespace TfmrLib
         {
             var R = LinAlg.Matrix<double>.Build.Dense(num_turns, num_turns);
 
-            for (int t = 1; t < num_turns; t++)
+            for (int t = 0; t < num_turns; t++)
             {
                 R[t, t] = R_c();
             }
@@ -169,7 +171,7 @@ namespace TfmrLib
             Complex eta = Complex.Sqrt(2d * Math.PI * f * Constants.mu_0 * sigma_c * Complex.ImaginaryOne) * t_cond / 2d;
             double R_skin = (1 / (sigma_c * h_cond * t_cond) * eta * Complex.Cosh(eta) / Complex.Sinh(eta)).Real;
             //Console.WriteLine($"R_skin: {R_skin}");
-            R_skin = 0;
+            //R_skin = 0;
             var R_f = R + LinAlg.Matrix<double>.Build.DenseIdentity(num_turns, num_turns) * R_skin;
             return R_f;
         }

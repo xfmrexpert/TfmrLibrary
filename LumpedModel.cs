@@ -62,9 +62,9 @@ namespace TfmrLib
             }
         }
 
-        public override Vector_c CalcResponseAtFreq(double f)
+        public override (Complex Z_term, Vector_c V_EndOfTurn) CalcResponseAtFreq(double f)
         {
-            Vector_c V_Response_AtF = V_c.Dense(Wdg.num_turns);
+            Vector_c V_TurnEnd_AtF = V_c.Dense(Wdg.num_turns-1);
 
             var L_matrix = Wdg.Calc_Lmatrix(f);
 
@@ -108,12 +108,12 @@ namespace TfmrLib
             
             //Z_term.Add(Z[0, 0].Magnitude);
             
-            for (int t = 0; t < Wdg.num_turns - 1; t++)
+            for (int t = 0; t < (Wdg.num_turns-1); t++)
             {
-                V_Response_AtF[t] = Z[0, t + 1] / Z[0, 0];
+                V_TurnEnd_AtF[t] = Z[0, t+1] / Z[0, 0];
             }
 
-            return V_Response_AtF;
+            return (Z[0, 0], V_TurnEnd_AtF);
         }
     }
 }

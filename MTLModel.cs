@@ -67,7 +67,7 @@ namespace TfmrLib
         }
 
         // Return value should be complex vector of voltage response at each turn
-        public override Vector_c CalcResponseAtFreq(double f)
+        public override (Complex Z_term, Vector_c V_EndOfTurn) CalcResponseAtFreq(double f)
         {
             Matrix_c HB = CalcHB(f);
 
@@ -80,7 +80,7 @@ namespace TfmrLib
             //     [ -Gamma*(G+j*2*pi*f*C)                0        ]
             Matrix_c A11 = M_c.Dense(Wdg.num_turns, Wdg.num_turns);
             Matrix_c A12 = -Gamma.ToComplex() * (R_f.ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * L.ToComplex());
-            Matrix_c A21 = -Gamma.ToComplex() * (Complex.ImaginaryOne * 2 * Math.PI * f * C.ToComplex());
+            Matrix_c A21 = -Gamma.ToComplex() * ((Math.Tan(Wdg.ins_loss_factor) * 2d * Math.PI * f * C).ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * C.ToComplex());
             Matrix_c A22 = M_c.Dense(Wdg.num_turns, Wdg.num_turns);
             //Matrix_c A1 = M_c.Dense(Wdg.num_turns, Wdg.num_turns).Append(A12);
             //Matrix_c A2 = A21.Append(M_c.Dense(Wdg.num_turns, Wdg.num_turns));
@@ -100,7 +100,7 @@ namespace TfmrLib
             v[2 * Wdg.num_turns] = 1.0; // Set applied voltage
             var x = B.Solve(v);
             var turn_end_voltages = x.SubVector(Wdg.num_turns, 2*Wdg.num_turns); // This should be grabbed the voltages at the _end_ of each turn
-            return turn_end_voltages / x[0]; //Divide by terminal voltage to get gain
+            return (x[0] / x[2*Wdg.num_turns], turn_end_voltages / x[0]); //Divide by terminal voltage to get gain
         }
 
         protected override void Initialize()
