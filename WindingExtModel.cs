@@ -35,7 +35,7 @@ namespace TfmrLib
                     var L1 = L_matrices[i].L_matrix;
                     var L2 = L_matrices[i + 1].L_matrix;
 
-                    return L1 + (L2 - L1) * (f - f1) / (f2 - f1);
+                    return (L1 + (L2 - L1) * (f - f1) / (f2 - f1));
                 }
             }
             return null;
