@@ -88,11 +88,14 @@ namespace TfmrLib
                 R[t, t] = R[t, t] * Math.PI * d_t[t];
             }
 
+            Matrix_d G = M_d.Dense(Wdg.num_turns, Wdg.num_turns);
+            G = Math.Tan(Wdg.ins_loss_factor) * 2d * Math.PI * f * C;
+
             Matrix_c Z = M_c.Dense(0, 0);
 
             //Console.WriteLine($"Calculating at {f / 1e6}MHz");
             //Y = 1j * 2 * math.pi * f * C + Q.transpose() @np.linalg.inv(R + 1j * 2 * math.pi * f * L)@Q
-            var Y = Complex.ImaginaryOne * 2 * Math.PI * f * C.ToComplex() + Q.ToComplex().Transpose() * (R.ToComplex() + Complex.ImaginaryOne * 2 * Math.PI * f * L.ToComplex()).Inverse() * Q.ToComplex();
+            var Y = G.ToComplex() + Complex.ImaginaryOne * 2 * Math.PI * f * C.ToComplex() + Q.ToComplex().Transpose() * (R.ToComplex() + Complex.ImaginaryOne * 2 * Math.PI * f * L.ToComplex()).Inverse() * Q.ToComplex();
             if (!Y.ConditionNumber().IsInfinity())
             {
                 //print(np.linalg.cond(Y))

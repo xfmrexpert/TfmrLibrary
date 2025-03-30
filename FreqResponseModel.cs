@@ -43,7 +43,7 @@ namespace TfmrLib
 
         // Impedances passed here are per unit length
         // C matrix should be in self/mutual form, not Maxwell form
-        public (List<Complex>, List<double[]>) CalcResponse(IProgress<int> progress = null)
+        public (List<Complex>, List<Complex[]>) CalcResponse(IProgress<int> progress = null)
         {
             Initialize();
 
@@ -58,18 +58,18 @@ namespace TfmrLib
             {
                 ++i;
                 //Console.WriteLine($"Calculating at {f / 1e6}MHz");
-                var (Z_term, gain_at_freq) = CalcResponseAtFreq(f);
+                var (Z_term, V_endofturn_at_freq) = CalcResponseAtFreq(f);
                 //var gain_at_freq = vi_vec / vi_vec[0];
-                V_turn.Add(gain_at_freq); //[n: 2 * n]
+                V_turn.Add(V_endofturn_at_freq); //[n: 2 * n]
                 //Y.Add(vi_vec[2 * Wdg.num_turns]); //Original code took absolute val of vi_vec[2*n]
                 Z.Add(Z_term);
                 progress?.Report((int)((i + 1) / (double)totalSteps * 100));
             }
 
-            var V_response = new List<double[]>();
+            var V_response = new List<Complex[]>();
             for (int t = 0; t < Wdg.num_turns; t++)
             {
-                V_response.Add(new double[NumSteps]);
+                V_response.Add(new Complex[NumSteps]);
             }
 
             // Enumerate through raw turn responses (vector of Complex Gain for each turn) at each frequency
@@ -79,7 +79,7 @@ namespace TfmrLib
                 for (int t = 0; t < (Wdg.num_turns-1); t++)
                 {
                     //Translate to dB
-                    V_response[t][f] = 20d * Math.Log10(V_turn[f][t].Magnitude);
+                    V_response[t][f] = V_turn[f][t];
                 }
             }
 

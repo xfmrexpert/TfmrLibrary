@@ -51,7 +51,7 @@ namespace TfmrLib
         public Matrix_c CalcHB(double f)
         {
             Matrix_c HB11 = M_c.Dense(Wdg.num_turns, Wdg.num_turns);
-            HB11[0, 0] = Wdg.Rs; //Source impedance
+            HB11[0, 0] = Wdg.Rs+Complex.ImaginaryOne * 2 * Math.PI * f * Wdg.Ls; //Source impedance
             Matrix_c HB12 = M_c.Dense(Wdg.num_turns, Wdg.num_turns);
             Matrix_c HB21 = M_c.Dense(Wdg.num_turns, Wdg.num_turns);
             for (int t = 0; t < (Wdg.num_turns - 1); t++)
@@ -59,7 +59,7 @@ namespace TfmrLib
                 HB21[t, t + 1] = 1.0;
             }
             Matrix_c HB22 = -1.0 * M_c.DenseIdentity(Wdg.num_turns);
-            HB22[Wdg.num_turns - 1, Wdg.num_turns - 1] = Wdg.Rl; //Impedance to ground
+            HB22[Wdg.num_turns - 1, Wdg.num_turns - 1] = Wdg.Rl + Complex.ImaginaryOne * 2 * Math.PI * f * Wdg.Ll; //Impedance to ground
             Matrix_c HB1 = HB11.Append(HB12);
             Matrix_c HB2 = HB21.Append(HB22);
             Matrix_c HB = HB1.Stack(HB2);
@@ -100,7 +100,7 @@ namespace TfmrLib
             v[2 * Wdg.num_turns] = 1.0; // Set applied voltage
             var x = B.Solve(v);
             var turn_end_voltages = x.SubVector(Wdg.num_turns, 2*Wdg.num_turns); // This should be grabbed the voltages at the _end_ of each turn
-            return (x[0] / x[2*Wdg.num_turns], turn_end_voltages / x[0]); //Divide by terminal voltage to get gain
+            return (Complex.One / x[2*Wdg.num_turns], turn_end_voltages); //Divide by terminal voltage to get gain
         }
 
         protected override void Initialize()

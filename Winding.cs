@@ -31,8 +31,11 @@ namespace TfmrLib
         public int num_discs;
         public int turns_per_disc;
         
-        public Complex Rs;
-        public Complex Rl;
+        public double Rs;
+        public double Rl;
+
+        public double Ls;
+        public double Ll;
 
         //public int phyAir;
         //public int phyExtBdry;
@@ -66,8 +69,10 @@ namespace TfmrLib
             
             eps_paper = 2.2; //3.5;
             rho_c = Constants.rho_copper; //ohm-m;
-            Rs = Complex.Zero;
-            Rl = Complex.Zero;
+            Rs = 0.0;
+            Rl = 0.0;
+            Ls = 0.0;
+            Ll = 0.0;
         }
 
         public double StrandArea()
