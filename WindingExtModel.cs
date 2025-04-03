@@ -13,6 +13,9 @@ namespace TfmrLib
     {
         private List<(double Freq, Matrix<double> L_matrix)> L_matrices;
 
+        public double InductanceFudgeFactor { get; set; } = 1.0;
+        public double CapacitanceFudgeFactor { get; set; } = 1.0;
+
         public string DirectoryPath { get; set; }
 
         public WindingExtModel(string directoryPath)
@@ -24,8 +27,8 @@ namespace TfmrLib
         //PUL Inductances
         public override Matrix<double> Calc_Lmatrix(double f = 60)
         {
-            if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix;
-            if (f >= L_matrices[L_matrices.Count - 1].Freq) return L_matrices[L_matrices.Count - 1].L_matrix;
+            if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix * InductanceFudgeFactor;
+            if (f >= L_matrices[L_matrices.Count - 1].Freq) return L_matrices[L_matrices.Count - 1].L_matrix * InductanceFudgeFactor;
             for (int i = 0; i < L_matrices.Count - 1; i++)
             {
                 if (f >= L_matrices[i].Freq && f <= L_matrices[i + 1].Freq)
@@ -35,7 +38,7 @@ namespace TfmrLib
                     var L1 = L_matrices[i].L_matrix;
                     var L2 = L_matrices[i + 1].L_matrix;
 
-                    return (L1 + (L2 - L1) * (f - f1) / (f2 - f1));
+                    return (L1 + (L2 - L1) * (f - f1) / (f2 - f1))*InductanceFudgeFactor;
                 }
             }
             return null;
@@ -45,7 +48,7 @@ namespace TfmrLib
         public override Matrix<double> Calc_Cmatrix()
         {
             Matrix<double> C = DelimitedReader.Read<double>(DirectoryPath + "/C_getdp.csv", false, ",", false);
-            return C;
+            return C*CapacitanceFudgeFactor;
         }
 
         private void ReadInductances()

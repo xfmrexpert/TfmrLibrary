@@ -37,10 +37,8 @@ namespace TfmrLib
         public double Ls;
         public double Ll;
 
-        //public int phyAir;
-        //public int phyExtBdry;
-        //public int phyAxis;
-        //public int phyInf;
+        public double ResistanceFudgeFactor = 1.0;
+
         public int[] phyTurnsCondBdry;
         public int[] phyTurnsCond;
         public int[] phyTurnsIns;
@@ -172,7 +170,7 @@ namespace TfmrLib
                 R[t, t] = R_c();
             }
 
-            double sigma_c = 1 / rho_c;
+            double sigma_c = 1 / rho_c * ResistanceFudgeFactor;
             Complex eta = Complex.Sqrt(2d * Math.PI * f * Constants.mu_0 * sigma_c * Complex.ImaginaryOne) * t_cond / 2d;
             double R_skin = (1 / (sigma_c * h_cond * t_cond) * eta * Complex.Cosh(eta) / Complex.Sinh(eta)).Real;
             //Console.WriteLine($"R_skin: {R_skin}");
@@ -183,7 +181,7 @@ namespace TfmrLib
 
         public double R_c()
         {
-            return rho_c / (StrandArea());
+            return rho_c / (StrandArea()) * ResistanceFudgeFactor;
         }
     }
 }
