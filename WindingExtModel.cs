@@ -14,7 +14,8 @@ namespace TfmrLib
         private List<(double Freq, Matrix<double> L_matrix)> L_matrices;
 
         public double InductanceFudgeFactor { get; set; } = 1.0;
-        public double CapacitanceFudgeFactor { get; set; } = 1.0;
+        public double SelfCapacitanceFudgeFactor { get; set; } = 1.0;
+        public double MutualCapacitanceFudgeFactor { get; set; } = 1.0;
 
         public string DirectoryPath { get; set; }
 
@@ -48,7 +49,27 @@ namespace TfmrLib
         public override Matrix<double> Calc_Cmatrix()
         {
             Matrix<double> C = DelimitedReader.Read<double>(DirectoryPath + "/C_getdp.csv", false, ",", false);
-            return C*CapacitanceFudgeFactor;
+            Console.WriteLine($"C before: {C.RowSums().Sum()}");
+            for (int i = 0; i < C.RowCount; i++)
+            {
+                for (int j = i; j < C.ColumnCount; j++)
+                {
+                    if (i == j)
+                    {
+                        C[i, j] += (SelfCapacitanceFudgeFactor - 1.0) * C.Row(i).Sum();
+                    }
+                    else
+                    {
+                        C[i, i] -= (MutualCapacitanceFudgeFactor - 1.0) * C[i, j];
+                        C[j, j] -= (MutualCapacitanceFudgeFactor - 1.0) * C[i, j];
+                        C[i, j] *= MutualCapacitanceFudgeFactor;
+                        C[j, i] *= MutualCapacitanceFudgeFactor;
+
+                    }
+                }
+            }
+            Console.WriteLine($"C after: {C.RowSums().Sum()}");
+            return C;
         }
 
         private void ReadInductances()
