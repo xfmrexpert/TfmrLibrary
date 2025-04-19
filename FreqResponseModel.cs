@@ -34,6 +34,7 @@ namespace TfmrLib
             MinFreq = minFreq;
             MaxFreq = maxFreq;
             NumSteps = numSteps;
+            Control.UseNativeMKL();
         }
 
         protected abstract void Initialize();
@@ -43,28 +44,63 @@ namespace TfmrLib
 
         // Impedances passed here are per unit length
         // C matrix should be in self/mutual form, not Maxwell form
-        public (List<Complex>, List<Complex[]>) CalcResponse(IProgress<int> progress = null)
+        public (Complex[], List<Complex[]>) CalcResponse(IProgress<int> progress = null)
         {
             Initialize();
 
             // Create vector of frequencies
             var freqs = Generate.LogSpaced(NumSteps, Math.Log10(MinFreq), Math.Log10(MaxFreq));
-
-            List<Vector_c> V_turn = [];
-            List<Complex> Z = [];
             int totalSteps = freqs.Count();
-            int i = 0;
-            foreach (var f in freqs)
+
+            Vector_c[] V_turn = new Vector_c[totalSteps];
+            Complex[] Z = new Complex[totalSteps];
+
+            // Counter for progress reporting.
+            int completed = 0;
+
+            // Choose a batch size based on the granularity of your work.
+            // You can tune 'batchSize' to find the optimal balance.
+            int batchSize = 10;  // For example, update progress every 10 iterations.
+
+            // Create a partitioner that yields ranges (tuples with start and exclusive end indices).
+            var rangePartitioner = System.Collections.Concurrent.Partitioner.Create(0, totalSteps, batchSize);
+
+            // Parallelize over the frequency indices.
+            //System.Threading.Tasks.Parallel.For(0, totalSteps, i =>
+            //{
+            for (int i = 0; i < totalSteps; i++)
             {
-                ++i;
-                //Console.WriteLine($"Calculating at {f / 1e6}MHz");
+                var f = freqs[i];
+                // Calculate the response at frequency 'f'
                 var (Z_term, V_endofturn_at_freq) = CalcResponseAtFreq(f);
-                //var gain_at_freq = vi_vec / vi_vec[0];
-                V_turn.Add(V_endofturn_at_freq); //[n: 2 * n]
-                //Y.Add(vi_vec[2 * Wdg.num_turns]); //Original code took absolute val of vi_vec[2*n]
-                Z.Add(Z_term);
-                progress?.Report((int)((i + 1) / (double)totalSteps * 100));
+
+                // Save the results in the preallocated arrays.
+                V_turn[i] = V_endofturn_at_freq;
+                Z[i] = Z_term;
+
+                // Update progress safely.
+                int done = System.Threading.Interlocked.Increment(ref completed);
+                progress?.Report((int)((done) / (double)totalSteps * 100));
             }
+            //);
+
+            // Use Parallel.ForEach to process batches in parallel.
+            //System.Threading.Tasks.Parallel.ForEach(rangePartitioner, range =>
+            //{
+            //    // Process each batch.
+            //    for (int i = range.Item1; i < range.Item2; i++)
+            //    {
+            //        var f = freqs[i];
+            //        // Calculate the response at frequency f.
+            //        var (Z_term, V_endofturn_at_freq) = CalcResponseAtFreq(f);
+            //        V_turn[i] = V_endofturn_at_freq;
+            //        Z[i] = Z_term;
+            //    }
+            //    // After processing the entire batch, update the completed counter.
+            //    int batchCount = range.Item2 - range.Item1;
+            //    int done = System.Threading.Interlocked.Add(ref completed, batchCount);
+            //    progress?.Report((int)(done / (double)totalSteps * 100));
+            //});
 
             var V_response = new List<Complex[]>();
             for (int t = 0; t < Wdg.num_turns; t++)

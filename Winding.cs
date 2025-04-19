@@ -170,12 +170,12 @@ namespace TfmrLib
                 R[t, t] = R_c();
             }
 
-            double sigma_c = 1 / rho_c * ResistanceFudgeFactor;
+            double sigma_c = 1 / rho_c;
             Complex eta = Complex.Sqrt(2d * Math.PI * f * Constants.mu_0 * sigma_c * Complex.ImaginaryOne) * t_cond / 2d;
             double R_skin = (1 / (sigma_c * h_cond * t_cond) * eta * Complex.Cosh(eta) / Complex.Sinh(eta)).Real;
             //Console.WriteLine($"R_skin: {R_skin}");
             //R_skin = 0;
-            var R_f = R + LinAlg.Matrix<double>.Build.DenseIdentity(num_turns, num_turns) * R_skin;
+            var R_f = (R + LinAlg.Matrix<double>.Build.DenseIdentity(num_turns, num_turns) * R_skin) * ResistanceFudgeFactor;
             return R_f;
         }
 
