@@ -35,7 +35,7 @@ namespace TfmrLib
             phyAir2 = geometry.NextSurfaceTag;
             phyInf = geometry.NextSurfaceTag;
 
-            double core_thickness = 0.1982/1000;
+            double core_thickness = Conversions.in_to_m(0.0078);
 
             // Left boundary (axis if core radius is 0)
             var pt_origin = geometry.AddPoint(0, 0, 0.1);
