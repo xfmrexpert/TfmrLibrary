@@ -23,14 +23,16 @@ namespace TfmrLib
         static protected VectorBuilder<double> V_d = Vector_d.Build;
         static protected VectorBuilder<Complex> V_c = Vector_c.Build;
 
-        public Winding Wdg { get; set; }
+        public Transformer Tfmr { get; set; }
+        public IRLCMatrixCalculator MatrixCalculator { get; set; }
         public double MinFreq { get; set; }
         public double MaxFreq { get; set; }
         public int NumSteps { get; set; }
 
-        public FreqResponseModel(Winding wdg, double minFreq = 10e3, double maxFreq = 100e3, int numSteps = 1000)
+        public FreqResponseModel(Transformer tfmr, IRLCMatrixCalculator matrixCalculator, double minFreq = 10e3, double maxFreq = 100e3, int numSteps = 1000)
         {
-            Wdg = wdg;
+            Tfmr = tfmr;
+            MatrixCalculator = matrixCalculator;
             MinFreq = minFreq;
             MaxFreq = maxFreq;
             NumSteps = numSteps;
@@ -103,19 +105,26 @@ namespace TfmrLib
             //});
 
             var V_response = new List<Complex[]>();
-            for (int t = 0; t < Wdg.num_turns; t++)
+            foreach (var wdg in Tfmr.Windings)
             {
-                V_response.Add(new Complex[NumSteps]);
+                for (int t = 0; t < wdg.num_turns; t++)
+                {
+                    V_response.Add(new Complex[NumSteps]);
+                }
             }
 
             // Enumerate through raw turn responses (vector of Complex Gain for each turn) at each frequency
             for (int f = 0; f < NumSteps; f++)
             {
-                // Enumerate each turn
-                for (int t = 0; t < (Wdg.num_turns-1); t++)
+                // Enumerate through each winding
+                foreach (var wdg in Tfmr.Windings)
                 {
-                    //Translate to dB
-                    V_response[t][f] = V_turn[f][t];
+                    // Enumerate each turn
+                    for (int t = 0; t < (wdg.num_turns - 1); t++)
+                    {
+                        //Translate to dB
+                        V_response[t][f] = V_turn[f][t];
+                    }
                 }
             }
 

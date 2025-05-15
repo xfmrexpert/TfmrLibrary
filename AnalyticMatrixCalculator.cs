@@ -4,43 +4,88 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using LinAlg = MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib
 {
-    public class WindingAnalytic : Winding
+    public class AnalyticMatrixCalculator : IRLCMatrixCalculator
     {
         //PUL Inductances
-        public override Matrix<double> Calc_Lmatrix(double f = 60)
+        private Matrix<double> Calc_Lmatrix_Wdg(Winding wdg, double f = 60)
         {
             var M = Matrix<double>.Build;
 
-            Matrix<double> L = M.Dense(num_turns, num_turns);
+            Matrix<double> L = M.Dense(wdg.num_turns, wdg.num_turns);
 
-            for (int i = 0; i < num_turns; i++)
+            for (int i = 0; i < wdg.num_turns; i++)
             {
-                (double r_i, double z_i) = GetTurnMidpoint(i);
-                L[i, i] = CalcSelfInductance(h_cond, t_cond, r_i, f) / (2 * Math.PI * r_i);
-                for (int j = i + 1; j < num_turns; j++)
+                (double r_i, double z_i) = wdg.GetTurnMidpoint(i);
+                L[i, i] = CalcSelfInductance(wdg.h_cond, wdg.t_cond, r_i, wdg.rho_c, f) / (2 * Math.PI * r_i);
+                for (int j = i + 1; j < wdg.num_turns; j++)
                 {
-                    (double r_j, double z_j) = GetTurnMidpoint(j);
-                    L[i, j] = CalcMutualInductance_Lyle(r_i, z_i, h_cond, t_cond, r_j, z_j, h_cond, t_cond) / (2 * Math.PI * r_i);
-                    L[j, i] = CalcMutualInductance_Lyle(r_i, z_i, h_cond, t_cond, r_j, z_j, h_cond, t_cond) / (2 * Math.PI * r_j);
+                    (double r_j, double z_j) = wdg.GetTurnMidpoint(j);
+                    L[i, j] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_i);
+                    L[j, i] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_j);
                 }
             }
 
             return L;
         }
 
-        public override Matrix<double> Calc_Cmatrix()
+        public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f = 60)
+        {
+            int total_turns = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_turns += wdg.num_turns;
+            }
+
+            LinAlg.Matrix<double> L = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+
+            int start = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                if (wdg.num_turns > 0)
+                {
+                    L.SetSubMatrix(start, start, Calc_Lmatrix_Wdg(wdg, f));
+                    start += wdg.num_turns;
+                }
+            }
+            return L;
+        }
+
+        public Matrix<double> Calc_Cmatrix(Transformer tfmr)
+        {
+            int total_turns = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_turns += wdg.num_turns;
+            }
+
+            LinAlg.Matrix<double> C = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+
+            int start = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                if (wdg.num_turns > 0)
+                {
+                    C.SetSubMatrix(start, start, Calc_Cmatrix_Wdg(wdg));
+                    start += wdg.num_turns;
+                }
+            }
+            return C;
+        }
+
+        private Matrix<double> Calc_Cmatrix_Wdg(Winding wdg)
         {
             double eps_oil = 1.0;
 
             var M = Matrix<double>.Build;
 
-            Matrix<double> C = M.Dense(num_turns, num_turns);
+            Matrix<double> C = M.Dense(wdg.num_turns, wdg.num_turns);
 
             //TODO: Need to modify to go from out to in and in to out
-            for (int i = 0; i < num_discs; i++)
+            for (int i = 0; i < wdg.num_discs; i++)
             {
                 double C_abv;
                 double C_bel;
@@ -52,34 +97,34 @@ namespace TfmrLib
                 // For now, let's calculate four capacitances for each turn
                 // If last disc (section), above is prev disc, below is tank
                 // TODO: How to handle segments above and below
-                if (i == (num_discs - 1))
+                if (i == (wdg.num_discs - 1))
                 {
-                    C_abv = Constants.eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_abv = Constants.eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) /  eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_abv = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+                    C_abv = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) /  eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
                     n_abv = i - 1;
-                    C_bel = Constants.eps_0 * eps_oil * t_cond / dist_to_ground;
+                    C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / dist_to_ground;
                     n_bel = -1;
                     //Console.WriteLine($"Last (bottom) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else if (i == 0) // If first disc, above is tank, below is next disc
                 {
-                    C_abv = Constants.eps_0 * eps_oil * t_cond / dist_to_ground;
+                    C_abv = Constants.eps_0 * eps_oil * wdg.t_cond / dist_to_ground;
                     n_abv = -1;
-                    C_bel = Constants.eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_bel = Constants.eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+                    C_bel = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
                     n_bel = i + 1;
                     //Console.WriteLine($"First (top) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else
                 {
-                    C_abv = C_bel = Constants.eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_abv = C_bel = Constants.eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_abv = C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+                    C_abv = C_bel = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
                     n_abv = i - 1;
                     n_bel = i + 1;
                     //Console.WriteLine($"Middle Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
 
-                for (int j = 0; j < turns_per_disc; j++)
+                for (int j = 0; j < wdg.turns_per_disc; j++)
                 {
                     double C_lt;
                     double C_rt;
@@ -87,20 +132,20 @@ namespace TfmrLib
                     bool out_to_in = (i % 2 == 0);
 
                     // If first turn in section, left is inner winding or core, right is next turn
-                    if ((j == 0 && !out_to_in) || (j == (turns_per_disc - 1) && out_to_in))
+                    if ((j == 0 && !out_to_in) || (j == (wdg.turns_per_disc - 1) && out_to_in))
                     {
-                        C_lt = Constants.eps_0 * eps_paper * h_cond / dist_to_ground;
-                        C_rt = Constants.eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
+                        C_lt = Constants.eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
+                        C_rt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
 
                     }
-                    else if ((j == (turns_per_disc - 1) && !out_to_in) || (j == 0 && out_to_in)) // If last turn in section, left is previous turn, right is outer winding or tank
+                    else if ((j == (wdg.turns_per_disc - 1) && !out_to_in) || (j == 0 && out_to_in)) // If last turn in section, left is previous turn, right is outer winding or tank
                     {
-                        C_lt = Constants.eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
-                        C_rt = Constants.eps_0 * eps_paper * h_cond / dist_to_ground;
+                        C_lt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
+                        C_rt = Constants.eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
                     }
                     else
                     {
-                        C_lt = C_rt = Constants.eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
+                        C_lt = C_rt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
                     }
 
                     int disc_abv = i - 1;
@@ -111,17 +156,17 @@ namespace TfmrLib
                     }
                     else
                     {
-                        n_abv = disc_abv * turns_per_disc + (turns_per_disc - j - 1);
+                        n_abv = disc_abv * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
                     }
                     int disc_bel = i + 1;
-                    if (disc_bel >= num_discs)
+                    if (disc_bel >= wdg.num_discs)
                     {
                         // ground below
                         n_bel = -1;
                     }
                     else
                     {
-                        n_bel = disc_bel * turns_per_disc + (turns_per_disc - j - 1);
+                        n_bel = disc_bel * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
                     }
 
                     int n_lt;
@@ -129,13 +174,13 @@ namespace TfmrLib
 
                     if (i % 2 == 0) //out to in
                     {
-                        n_lt = i * turns_per_disc + j + 1;
-                        n_rt = i * turns_per_disc + j - 1;
+                        n_lt = i * wdg.turns_per_disc + j + 1;
+                        n_rt = i * wdg.turns_per_disc + j - 1;
                         if (j == 0)
                         {
                             n_rt = -1;
                         }
-                        if (j >= (turns_per_disc - 1))
+                        if (j >= (wdg.turns_per_disc - 1))
                         {
                             n_lt = -1;
                         }
@@ -143,13 +188,13 @@ namespace TfmrLib
                     }
                     else //in to out
                     {
-                        n_lt = i * turns_per_disc + j - 1;
-                        n_rt = i * turns_per_disc + j + 1;
+                        n_lt = i * wdg.turns_per_disc + j - 1;
+                        n_rt = i * wdg.turns_per_disc + j + 1;
                         if (j == 0)
                         {
                             n_lt = -1;
                         }
-                        if (j >= (turns_per_disc - 1))
+                        if (j >= (wdg.turns_per_disc - 1))
                         {
                             n_rt = -1;
                         }
@@ -157,7 +202,7 @@ namespace TfmrLib
                         //Console.WriteLine("In to out");
                     }
 
-                    int n = i * turns_per_disc + j;
+                    int n = i * wdg.turns_per_disc + j;
                     //Console.WriteLine($"n: {n} n_abv: {n_abv} n_bel: {n_bel} n_lt: {n_lt} n_rt: {n_rt}");
 
                     // Assemble C_abv, C_bel, C_lt, C_rt into C_seg
@@ -188,7 +233,29 @@ namespace TfmrLib
             return C;
         }
 
-        private double CalcSelfInductance(double h, double w, double r_avg, double f)
+        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
+        {
+            int total_turns = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_turns += wdg.num_turns;
+            }
+
+            LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+
+            int start = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                if (wdg.num_turns > 0)
+                {
+                    R.SetSubMatrix(start, start, wdg.Calc_Rmatrix(f));
+                    start += wdg.num_turns;
+                }
+            }
+            return R;
+        }
+
+        private double CalcSelfInductance(double h, double w, double r_avg, double rho_c, double f)
         {
             double mu_r = 1.0;
             double sigma = 1.0 / rho_c; // Conductivity of copper (S/m)
