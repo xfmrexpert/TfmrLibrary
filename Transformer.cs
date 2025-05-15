@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TDAP;
+using LinAlg = MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib
 {
@@ -12,6 +13,7 @@ namespace TfmrLib
         public List<Winding> Windings { get; set; } = [];
 
         public double eps_oil = 1.0; //2.2;
+        public double ins_loss_factor = 0.03;
         public double r_core;
         public double bdry_radius = 1.0; //radius of outer boundary of finite element model
 
@@ -63,6 +65,5 @@ namespace TfmrLib
 
             return geometry;
         }
-
     }
 }

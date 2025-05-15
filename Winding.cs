@@ -16,8 +16,6 @@ namespace TfmrLib
         public double eps_paper; //3.5;
         public double rho_c; //ohm-m;
 
-        public double ins_loss_factor = 0.03;
-
         public double dist_wdg_tank_right;
         public double dist_wdg_tank_top;
         public double dist_wdg_tank_bottom;
@@ -142,10 +140,6 @@ namespace TfmrLib
 
             return conductorins_bdrys;
         }
-
-        public virtual LinAlg.Matrix<double> Calc_Lmatrix(double f = 60) { return null; }
-
-        public virtual LinAlg.Matrix<double> Calc_Cmatrix() { return null; }
 
         public LinAlg.Vector<double> Calc_TurnRadii()
         {

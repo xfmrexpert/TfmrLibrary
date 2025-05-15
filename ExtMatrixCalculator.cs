@@ -1,32 +1,33 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+﻿using MathNet.Numerics.Data.Text;
+using MathNet.Numerics.LinearAlgebra;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using MathNet.Numerics.Data.Text;
+using LinAlg = MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib
 {
-    public class WindingExtModel : Winding
+    public class ExtMatrixCalculator : IRLCMatrixCalculator
     {
-        private List<(double Freq, Matrix<double> L_matrix)> L_matrices;
-
         public double InductanceFudgeFactor { get; set; } = 1.0;
         public double SelfCapacitanceFudgeFactor { get; set; } = 1.0;
         public double MutualCapacitanceFudgeFactor { get; set; } = 1.0;
 
         public string DirectoryPath { get; set; }
 
-        public WindingExtModel(string directoryPath)
+        private List<(double Freq, Matrix<double> L_matrix)> L_matrices;
+
+        public ExtMatrixCalculator(string directoryPath)
         {
             DirectoryPath = directoryPath;
             ReadInductances();
         }
 
         //PUL Inductances
-        public override Matrix<double> Calc_Lmatrix(double f = 60)
+        public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f = 60)
         {
             if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix * InductanceFudgeFactor;
             if (f >= L_matrices[L_matrices.Count - 1].Freq) return L_matrices[L_matrices.Count - 1].L_matrix * InductanceFudgeFactor;
@@ -39,14 +40,14 @@ namespace TfmrLib
                     var L1 = L_matrices[i].L_matrix;
                     var L2 = L_matrices[i + 1].L_matrix;
 
-                    return (L1 + (L2 - L1) * (f - f1) / (f2 - f1))*InductanceFudgeFactor;
+                    return (L1 + (L2 - L1) * (f - f1) / (f2 - f1)) * InductanceFudgeFactor;
                 }
             }
             return null;
         }
 
         //PUL Capacitances
-        public override Matrix<double> Calc_Cmatrix()
+        public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
             Matrix<double> C = DelimitedReader.Read<double>(DirectoryPath + "/C_getdp.csv", false, ",", false);
             Console.WriteLine($"C before: {C.RowSums().Sum()}");
@@ -109,10 +110,30 @@ namespace TfmrLib
             // Output the sorted filenames and their values
             foreach (var file in filesWithValues)
             {
-                //Console.WriteLine($"{file.FileName} - {file.NumericValue}");
                 L_matrices.Add((file.NumericValue, DelimitedReader.Read<double>(DirectoryPath + "/" + file.FileName, false, ",", false)));
             }
         }
 
+        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
+        {
+            int total_turns = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_turns += wdg.num_turns;
+            }
+
+            LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+
+            int start = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                if (wdg.num_turns > 0)
+                {
+                    R.SetSubMatrix(start, start, wdg.Calc_Rmatrix(f));
+                    start += wdg.num_turns;
+                }
+            }
+            return R;
+        }
     }
 }

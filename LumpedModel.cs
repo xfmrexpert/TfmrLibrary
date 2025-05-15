@@ -1,4 +1,5 @@
 ﻿using MathNet.Numerics;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.LinearAlgebra;
 using System;
 using System.Collections.Generic;
@@ -20,98 +21,102 @@ namespace TfmrLib
     {
         public Matrix_d C { get; set; }
         public Matrix_d Q { get; set; }
-        public Vector_d d_t { get; set; } // turn diameters
+        public Matrix_d Gamma { get; set; } // turn lengths
 
-        public LumpedModel(Winding wdg) : base(wdg) { }
-        public LumpedModel(Winding wdg, double minFreq, double maxFreq, int numSteps) : base(wdg, minFreq, maxFreq, numSteps) { }
+        private int total_turns = 0;
+
+        public LumpedModel(Transformer tfmr, IRLCMatrixCalculator matrixCalculator) : base(tfmr, matrixCalculator) { }
+        public LumpedModel(Transformer tfmr, IRLCMatrixCalculator matrixCalculator, double minFreq, double maxFreq, int numSteps) : base(tfmr, matrixCalculator, minFreq, maxFreq, numSteps) { }
 
         protected override void Initialize()
         {
-            C = M_d.Dense(Wdg.num_turns, Wdg.num_turns);
-
-            var C_matrix = Wdg.Calc_Cmatrix();
-
-            d_t = 2 * Wdg.Calc_TurnRadii();
-
-            for (int t = 0; t < Wdg.num_turns; t++)
+            total_turns = 0;
+            foreach (Winding wdg in Tfmr.Windings)
             {
-                C[t, t] = C_matrix[t, t] * Math.PI * d_t[t];
-                for (int t2 = 0; t2 < Wdg.num_turns; t2++)
+                total_turns += wdg.num_turns;
+            }
+
+            // Gamma is the diagonal matrix of conductors radii
+            Gamma = M_d.Dense(total_turns, total_turns); 
+
+            int start = 0;
+            foreach (Winding wdg in Tfmr.Windings)
+            {
+                if (wdg.num_turns > 0)
                 {
-                    if (t != t2)
-                    {
-                        C[t, t2] = C_matrix[t, t2] * Math.PI * d_t[t];
-                    }
+                    // Add winding turn length to Gamma
+                    Gamma.SetSubMatrix(start, start, M_d.DenseOfDiagonalVector(2d * Math.PI * wdg.Calc_TurnRadii()));
+                    start += wdg.num_turns;
                 }
             }
+
+            C = M_d.Dense(total_turns, total_turns);
+
+            var C_PUL = MatrixCalculator.Calc_Cmatrix(Tfmr);
+
+            C = Gamma * C_PUL;
 
             // branch-node incidence matrix
             // in this context, this matrix relates the inductor currents and the node voltages
-            Q = M_d.Dense(Wdg.num_turns, Wdg.num_turns);
+            Q = CalcIncidenceMatrix();
+        }
+
+        public Matrix<double> CalcIncidenceMatrix()
+        {
+            // branch-node incidence matrix
+            // in this context, this matrix relates the inductor currents and the node voltages
+            var Q = M_d.Dense(total_turns, total_turns);
             // rows = branches
             // columns = nodes
-            for (int t = 0; t < Wdg.num_turns; t++)
+            int start_turn = 0;
+            foreach (var wdg in Tfmr.Windings)
             {
-                // t is branch number
-                // first node in branch 
-                Q[t, t] = 1.0;
-                if (t != (Wdg.num_turns - 1))
+                if (wdg.num_turns == 0) continue;
+                for (int t = 0; t < wdg.num_turns; t++)
                 {
-                    Q[t, t + 1] = -1.0;
+                    // t is branch number
+                    // first node in branch 
+                    Q[start_turn + t, start_turn + t] = 1.0;
+                    if (t != (wdg.num_turns - 1))
+                    {
+                        Q[start_turn + t, start_turn + t + 1] = -1.0;
+                    }
                 }
+                start_turn += wdg.num_turns;
             }
+            
+            return Q;
         }
 
         public override (Complex Z_term, Vector_c V_EndOfTurn) CalcResponseAtFreq(double f)
         {
-            Vector_c V_TurnEnd_AtF = V_c.Dense(Wdg.num_turns-1);
+            Vector_c V_TurnEnd_AtF = V_c.Dense(total_turns-1);
 
-            var L_matrix = Wdg.Calc_Lmatrix(f);
+            Matrix_d L_PUL = MatrixCalculator.Calc_Lmatrix(Tfmr, f);
 
-            Matrix_d L = M_d.Dense(Wdg.num_turns, Wdg.num_turns);
+            Matrix_d L = Gamma * L_PUL;
 
-            for (int t = 0; t < Wdg.num_turns; t++)
-            {
-                L[t, t] = L_matrix[t, t] * Math.PI * d_t[t];
-                for (int t2 = 0; t2 < Wdg.num_turns; t2++)
-                {
-                    if (t != t2)
-                    {
-                        L[t, t2] = L_matrix[t, t2] * Math.PI * d_t[t];
-                    }
-                }
-            }
+            Matrix_d R_PUL = MatrixCalculator.Calc_Rmatrix(Tfmr, f);
 
-            Matrix_d R = Wdg.Calc_Rmatrix(f);
-            for (int t = 0; t < Wdg.num_turns; t++)
-            {
-                R[t, t] = R[t, t] * Math.PI * d_t[t];
-            }
+            Matrix_d R = Gamma * R_PUL;
 
-            Matrix_d G = M_d.Dense(Wdg.num_turns, Wdg.num_turns);
-            G = Math.Tan(Wdg.ins_loss_factor) * 2d * Math.PI * f * C;
+            Matrix_d G = M_d.Dense(total_turns, total_turns);
+            G = Math.Tan(Tfmr.ins_loss_factor) * 2d * Math.PI * f * C;
 
             Matrix_c Z = M_c.Dense(0, 0);
 
-            //Console.WriteLine($"Calculating at {f / 1e6}MHz");
             //Y = 1j * 2 * math.pi * f * C + Q.transpose() @np.linalg.inv(R + 1j * 2 * math.pi * f * L)@Q
             var Y = G.ToComplex() + Complex.ImaginaryOne * 2 * Math.PI * f * C.ToComplex() + Q.ToComplex().Transpose() * (R.ToComplex() + Complex.ImaginaryOne * 2 * Math.PI * f * L.ToComplex()).Inverse() * Q.ToComplex();
             if (!Y.ConditionNumber().IsInfinity())
             {
-                //print(np.linalg.cond(Y))
                 Z = Y.Inverse();
             }
             else
             {
                 Console.WriteLine("Matrix is shite");
             }
-
-            // TODO: Need to verify return values
-            // UPDATE: THEM IS F'ING WRONG, NEED TO _FIX_ RETURN VALUES
             
-            //Z_term.Add(Z[0, 0].Magnitude);
-            
-            for (int t = 0; t < (Wdg.num_turns-1); t++)
+            for (int t = 0; t < (total_turns-1); t++)
             {
                 V_TurnEnd_AtF[t] = Z[0, t+1] / Z[0, 0];
             }
