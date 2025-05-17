@@ -51,7 +51,7 @@ namespace TfmrLib
 
         public Matrix_d CalcHA()
         {
-            Matrix_d HA = M_d.Dense(total_turns, total_turns);
+            Matrix_d HA = M_d.Dense(2*total_turns, 2*total_turns);
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
@@ -84,7 +84,7 @@ namespace TfmrLib
         }
         public Matrix_c CalcHB(double f)
         {
-            Matrix_c HB = M_c.Dense(total_turns, total_turns);
+            Matrix_c HB = M_c.Dense(2 * total_turns, 2 * total_turns);
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
@@ -144,6 +144,8 @@ namespace TfmrLib
             }
 
             C = MatrixCalculator.Calc_Cmatrix(Tfmr);
+
+            Gamma = M_d.Dense(total_turns, total_turns);
 
             // Gamma is the diagonal matrix of conductors radii (eq. 2)
             int start = 0;
