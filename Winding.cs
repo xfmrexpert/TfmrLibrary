@@ -4,8 +4,8 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using TDAP;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
+using GeometryLib;
 
 namespace TfmrLib
 {
@@ -122,13 +122,13 @@ namespace TfmrLib
                 z = z - z_offset;
                 var conductor_bdry = geometry.AddRoundedRectangle(r, z, h_cond, t_cond, r_cond_corner, 0.0004);
                 
-                phyTurnsCondBdry[i] = conductor_bdry.AttribID = geometry.NextLineTag;
+                phyTurnsCondBdry[i] = conductor_bdry.AddTag();
 
                 if (include_ins)
                 {
                     var insulation_bdry = geometry.AddRoundedRectangle(r, z, h_cond + 2 * t_ins, t_cond + 2 * t_ins, r_cond_corner + t_ins, 0.003);
                     var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                    insulation_surface.AttribID = phyTurnsIns[i] = geometry.NextSurfaceTag;
+                    phyTurnsIns[i] = insulation_surface.AddTag();
                     conductorins_bdrys[i] = insulation_bdry;
                 }
                 else
@@ -137,7 +137,7 @@ namespace TfmrLib
                 }
                 
                 var conductor_surface = geometry.AddSurface(conductor_bdry);
-                conductor_surface.AttribID = phyTurnsCond[i] = geometry.NextSurfaceTag;
+                phyTurnsCond[i] = conductor_surface.AddTag();
             }
 
             return conductorins_bdrys;

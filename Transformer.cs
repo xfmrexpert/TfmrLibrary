@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TDAP;
+using GeometryLib;
 
 namespace TfmrLib
 {
@@ -22,18 +22,9 @@ namespace TfmrLib
         public int phyInf;
         public int phyCore;
 
-        public Geometry GenerateGeometry(bool RestartNumbersPerDimension = true)
+        public Geometry GenerateGeometry()
         {
             var geometry = new Geometry();
-            geometry.RestartNumberingPerDimension = RestartNumbersPerDimension;
-
-            // Setup axis and external boundaries
-            phyAxis = geometry.NextLineTag; // 1;
-            phyExtBdry = geometry.NextLineTag; // 2;
-            phyCore = geometry.NextSurfaceTag;
-            phyAir = geometry.NextSurfaceTag;
-            phyAir2 = geometry.NextSurfaceTag;
-            phyInf = geometry.NextSurfaceTag;
 
             double core_thickness = Conversions.in_to_m(0.0078);
 
@@ -46,7 +37,7 @@ namespace TfmrLib
             var axis = geometry.AddLine(pt_axis_bottom, pt_axis_top);
             var axis_top_inf = geometry.AddLine(pt_axis_top, pt_axis_top_inf);
             var axis_bottom_inf = geometry.AddLine(pt_axis_bottom_inf, pt_axis_bottom);
-            axis.AttribID = phyAxis;
+            phyAxis = axis.AddTag();
 
             var pt_core_bottom_left = geometry.AddPoint(r_core, -bdry_radius, 0.1);
             var pt_core_top_left = geometry.AddPoint(r_core, bdry_radius, 0.1);
@@ -73,7 +64,7 @@ namespace TfmrLib
 
             var outer_bdry = geometry.AddLineLoop(axis, bdry_top, core_top, right_bdry, core_bottom, bdry_bottom);
             var outer_bdry_inf = geometry.AddLineLoop(axis_bottom_inf, bdry_bottom, core_bottom, right_bdry, core_top, bdry_top, axis_top_inf, bdry_inf_top, right_bdry_inf, bdry_inf_bottom);
-            outer_bdry.AttribID = phyExtBdry;
+            phyExtBdry = outer_bdry.AddTag();
 
             List<GeomLineLoop> conductorins_bdrys = new List<GeomLineLoop>();
             
@@ -83,16 +74,16 @@ namespace TfmrLib
             }
 
             var core_surface = geometry.AddSurface(core_bdry);
-            core_surface.AttribID = phyCore;
+            phyCore = core_surface.AddTag();
             conductorins_bdrys.Add(core_bdry);
             var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys.ToArray());
-            interior_surface.AttribID = phyAir;
+            phyAir = interior_surface.AddTag();
 
             var axis_core_surface = geometry.AddSurface(axis_core_bdry);
-            axis_core_surface.AttribID = phyAir2;
+            phyAir2 = axis_core_surface.AddTag();
 
             var inf_surface = geometry.AddSurface(outer_bdry_inf);
-            inf_surface.AttribID = phyInf;
+            phyInf = inf_surface.AddTag();
 
             return geometry;
         }
