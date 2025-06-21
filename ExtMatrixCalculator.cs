@@ -1,12 +1,15 @@
-﻿using MathNet.Numerics.Data.Text;
+﻿using GeometryLib;
+using MathNet.Numerics.Data.Text;
 using MathNet.Numerics.LinearAlgebra;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
+using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
 namespace TfmrLib
 {
@@ -135,5 +138,7 @@ namespace TfmrLib
             }
             return R;
         }
+
+        
     }
 }
