@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    internal class FEMProblem
+    public class FEMProblem
     {
+        public List<Region> Regions { get; set; }
     }
 }

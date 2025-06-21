@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public class BoundaryCondition
+    public class Region
     {
+        public string Name { get; set; }
+        public int Id { get; set; }
+        public List<object> Properties { get; set; }
     }
 }

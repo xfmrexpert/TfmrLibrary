@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public class BoundaryCondition
+    public class Excitation
     {
     }
 }

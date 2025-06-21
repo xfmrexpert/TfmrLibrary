@@ -79,7 +79,7 @@ namespace TfmrLib
             return L_getdp;
         }
 
-        public Vector_d CalcInductance(Transformer tfmr, int posTurn, double freq, int order = 1)
+        private Vector_d CalcInductance(Transformer tfmr, int posTurn, double freq, int order = 1)
         {
             Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {posTurn}");
 
@@ -154,7 +154,6 @@ namespace TfmrLib
                 p.Close();
 
             }
-
 
             if (return_code != 0)
             {
@@ -283,7 +282,255 @@ namespace TfmrLib
 
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
-            throw new NotImplementedException();
+            var geometry = tfmr.GenerateGeometry();
+            GmshFile gmshFile = new GmshFile("case.geo");
+            gmshFile.CreateFromGeometry(geometry);
+            double meshscale = 1.0;
+            var mesh = gmshFile.GenerateMesh(meshscale, 2);
+
+            int total_turns = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_turns += wdg.num_turns;
+            }
+
+            Matrix<double> C_getdp = Matrix<double>.Build.Dense(total_turns, total_turns);
+
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = 8  // Limit to 4 concurrent threads
+            };
+
+            Parallel.For(0, total_turns, options, t =>
+            //for (int t = 0; t < wdg.num_turns; t++)
+            {
+                Vector_d row;
+                if (true)
+                {
+                    row = CalcCapacitance(tfmr, t);
+                }
+                else
+                {
+                    //row = CalcInductance_FEMM(freq, t);
+                }
+                // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
+                lock (C_getdp)
+                {
+                    C_getdp.SetRow(t, row);
+                }
+            }
+            );
+
+            int globalTurn = 0;
+            foreach (var wdg in tfmr.Windings)
+            {
+                for (int localTurn = 0; localTurn < wdg.num_turns; localTurn++, globalTurn++)
+                {
+                    (double r, double z) = wdg.GetTurnMidpoint(localTurn);
+                    for (int t2 = 0; t2 < total_turns; t2++)
+                    {
+                        C_getdp[globalTurn, t2] = C_getdp[globalTurn, t2] / r;
+                    }
+                }
+            }
+
+            DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
+            return C_getdp;
+        }
+
+        private Vector_d CalcCapacitance(Transformer tfmr, int posTurn, int order = 1)
+        {
+            string dir = posTurn.ToString();
+
+            int total_turns = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_turns += wdg.num_turns;
+            }
+
+            // Find the winding and turn number for the given global turn number
+            int wdgNum = 0;
+            int localTurn = posTurn;
+            for (int i = 0; i < tfmr.Windings.Count; i++)
+            {
+                var wdg = tfmr.Windings[i];
+                if (localTurn < wdg.num_turns)
+                {
+                    wdgNum = i;
+                    break;
+                }
+                localTurn -= wdg.num_turns;
+            }
+
+            string model_prefix = $"./Results/{dir}/";
+            Directory.CreateDirectory(Directory.GetCurrentDirectory() + $"/Results/{dir}");
+
+            var f = File.CreateText($"Results/{dir}/case.pro");
+            f.WriteLine($"FE_Order = {order};");
+            f.WriteLine("Group{");
+            f.WriteLine($"Air = Region[{tfmr.phyAir}];");
+            int globalTurnIndex = 0;
+            for (int windingIndex = 0; windingIndex < tfmr.Windings.Count; windingIndex++)
+            {
+                var wdg = tfmr.Windings[windingIndex];
+                for (int turnIndex = 0; turnIndex < wdg.num_turns; turnIndex++)
+                {
+                    f.WriteLine($"Turn{globalTurnIndex} = Region[{wdg.phyTurnsCondBdry[turnIndex]}];");
+                    globalTurnIndex++;
+                }
+            }
+
+            f.Write("TurnIns = Region[{");
+            bool firstTurn = true;
+            for (int windingIndex = 0; windingIndex < tfmr.Windings.Count; windingIndex++)
+            {
+                var wdg = tfmr.Windings[windingIndex];
+                for (int turnIndex = 0; turnIndex < wdg.num_turns; turnIndex++)
+                {
+                    if (!firstTurn)
+                    {
+                        f.Write(", ");
+                    }
+                    else
+                    {
+                        firstTurn = false;
+                    }
+                    f.Write($"{wdg.phyTurnsIns[turnIndex]}");
+                }
+            }
+
+            f.Write("}];\n");
+
+            //f.WriteLine($"Ground = Region[{tfmr.phyCore}];")
+            f.WriteLine($"Axis = Region[{tfmr.phyAxis}];");
+            f.WriteLine($"Surface_Inf = Region[{tfmr.phyInf}];");
+            f.WriteLine("Vol_Ele = Region[{Air, TurnIns}];");
+            f.Write("Sur_C_Ele = Region[{");
+
+            for (int i = 0; i < total_turns; i++)
+            {
+                f.Write($"Turn{i}");
+                if (i < (total_turns - 1))
+                {
+                    f.Write(", ");
+                }
+                else
+                {
+                    f.Write("}];\n");
+                }
+            }
+            if (tfmr.r_core == 0)
+            {
+                f.WriteLine($"Sur_Neu_Ele = Region[{tfmr.phyAxis}];");
+            }
+            f.WriteLine("}");
+
+            //TODO: Fix for case where posTurn is last turn
+            firstTurn = true;
+            string otherTurns = "";
+            globalTurnIndex = 0;
+            for (int windingIndex = 0; windingIndex < tfmr.Windings.Count; windingIndex++)
+            {
+                var wdg = tfmr.Windings[windingIndex];
+                for (int turnIndex = 0; turnIndex < wdg.num_turns; turnIndex++)
+                {
+                    if (globalTurnIndex != posTurn)
+                    {
+                        if (!firstTurn)
+                        {
+                            otherTurns += ", ";
+                        }
+                        else
+                        {
+                            firstTurn = false;
+                        }
+                        otherTurns += $"Turn{globalTurnIndex}";
+                    }
+                    globalTurnIndex++;
+                }
+            }
+
+            f.WriteLine($@"
+            Flag_Axi = 1;
+
+            Include ""../../GetDP_Files/Lib_Materials.pro"";
+
+            Function {{
+                {(tfmr.r_core == 0 ? "dn[Region[Axis]] = 0;" : "")} 
+                epsr[Region[{{Air}}]] = {tfmr.eps_oil};
+                epsr[Region[{{TurnIns}}]] = {tfmr.Windings[0].eps_paper};
+            }}
+
+            Constraint {{
+                {{ Name ElectricScalarPotential; Type Assign;
+                    Case {{
+                        {{ Region Region[Surface_Inf]; Value 0; }}
+                        {(tfmr.r_core > 0 ? "{ Region Region[Axis]; Value 0;}" : "")}
+                    }}
+                }}
+            }}
+            Constraint {{                             
+                {{ Name GlobalElectricPotential; Type Assign;
+                    Case {{
+                        {{ Region Region[Turn{posTurn}]; Value 1.0; }}
+                        {{ Region Region[{{{otherTurns}}}]; Value 0; }}
+                    }}
+                }}
+            }}
+            Constraint {{ {{ Name GlobalElectricCharge; Case {{ }} }} }}
+
+            Include ""../../GetDP_Files/Lib_Electrostatics_v.pro"";
+            ");
+
+            f.Close();
+
+            string mygetdp = onelab_dir + "getdp.exe";
+
+            string model = model_prefix + "case";
+            string model_msh = "case.msh";
+            string model_pro = model + ".pro";
+
+            var sb = new StringBuilder();
+            Process p = new Process();
+
+            p.StartInfo.FileName = mygetdp;
+            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir} -solve Electrostatics_v -pos Electrostatics_v -v 5";
+            p.StartInfo.CreateNoWindow = true;
+
+            // redirect the output
+            p.StartInfo.RedirectStandardOutput = true;
+            p.StartInfo.RedirectStandardError = true;
+
+            // hookup the eventhandlers to capture the data that is received
+            p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
+            p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
+
+            // direct start
+            p.StartInfo.UseShellExecute = false;
+
+            p.Start();
+
+            // start our event pumps
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
+            // until we are done
+            p.WaitForExit();
+
+            string output = sb.ToString();
+
+            int return_code = p.ExitCode;
+            if (return_code != 0)
+            {
+                throw new Exception($"Failed to run getdp in CalcCapacitance for turn {posTurn}");
+            }
+
+            var resultFile = File.OpenText(model_prefix + "res/q.txt");
+            string line = resultFile.ReadLine();
+            var C_array = Array.ConvertAll(line.Split().Skip(2).ToArray(), Double.Parse);
+            var C = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(C_array);
+            resultFile.Close();
+            return C;
         }
 
         public Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
