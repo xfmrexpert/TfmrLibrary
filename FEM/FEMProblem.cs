@@ -8,6 +8,8 @@ namespace TfmrLib.FEM
 {
     public class FEMProblem
     {
-        public List<Region> Regions { get; set; }
+        public List<Region> Regions { get; set; } = new List<Region>();
+        public List<BoundaryCondition> BoundaryConditions { get; set; } = new List<BoundaryCondition>();
+        public List<Excitation> Excitations { get; set; } = new List<Excitation>();
     }
 }

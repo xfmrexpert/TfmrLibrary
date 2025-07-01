@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using TfmrLib.FEM;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
@@ -336,6 +337,24 @@ namespace TfmrLib
 
             DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
             return C_getdp;
+        }
+
+        private Vector_d CalcCapacitanceNew(Transformer tfmr, int turn, int order = 1)
+        {
+            var fem = new FEMProblem();
+            fem.Regions.Add(new Region() { Name = "Air", Tags = new List<int>() { tfmr.phyAir } });
+            fem.BoundaryConditions.Add(new BoundaryCondition() { Tags = new List<int>() { tfmr.phyAxis, tfmr.phyExtBdry } });
+            for (int wdgNum = 0; wdgNum <= tfmr.Windings.Count; wdgNum++)
+            {
+                var wdg = tfmr.Windings[wdgNum];
+                for (int localTurn = 0; localTurn <= wdg.num_turns; localTurn++)
+                {
+                    fem.Regions.Add(new Region() { Name = $"Wdg{wdgNum}TurnIns{localTurn}", Tags = new List<int>() { wdg.phyTurnsIns[localTurn] } });
+                    fem.Excitations.Add(new Excitation() { });
+
+                }
+            }
+            return null;
         }
 
         private Vector_d CalcCapacitance(Transformer tfmr, int posTurn, int order = 1)

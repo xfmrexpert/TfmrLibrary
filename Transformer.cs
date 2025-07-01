@@ -9,6 +9,7 @@ namespace TfmrLib
 {
     public class Transformer
     {
+        public Core Core { get; set; } = new Core();
         public List<Winding> Windings { get; set; } = [];
 
         public double eps_oil = 1.0; //2.2;

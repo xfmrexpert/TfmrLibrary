@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TfmrLib.FEM
+namespace TfmrLib
 {
-    public class Excitation
+    public class ConnectionNode
     {
-        public double Value { get; set; }
+        public string NodeId { get; set; }     // e.g. "H1", "X0", "R5"
     }
 }

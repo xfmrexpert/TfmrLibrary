@@ -8,5 +8,7 @@ namespace TfmrLib.FEM
 {
     public class BoundaryCondition
     {
+        public string Name { get; set; }
+        public List<int> Tags { get; set; }
     }
 }

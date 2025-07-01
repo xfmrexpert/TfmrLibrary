@@ -10,8 +10,8 @@ namespace TfmrLib
     {
         public int NumLegs { get; set; }
         public int NumWoundLegs { get; set; }
-        public double CoreLegRadius { get; set; }
-        public double WindowWidth { get; set; }
-        public double WindowHeight { get; set; }
+        public double CoreLegRadius_mm { get; set; }
+        public double WindowWidth_mm { get; set; }
+        public double WindowHeight_mm { get; set; }
     }
 }

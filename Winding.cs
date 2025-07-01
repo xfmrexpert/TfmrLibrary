@@ -13,6 +13,9 @@ namespace TfmrLib
 
     public class Winding
     {
+        public string Name { get; set; } // HV, LV, RW, etc.
+        public List<WindingSegment> Segments { get; set; } = new();
+
         public double eps_paper; //3.5;
         public double rho_c; //ohm-m;
 

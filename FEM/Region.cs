@@ -10,6 +10,7 @@ namespace TfmrLib.FEM
     {
         public string Name { get; set; }
         public int Id { get; set; }
+        public List<int> Tags { get; set; }
         public List<object> Properties { get; set; }
     }
 }
