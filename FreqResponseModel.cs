@@ -116,6 +116,7 @@ namespace TfmrLib
             // Enumerate through raw turn responses (vector of Complex Gain for each turn) at each frequency
             for (int f = 0; f < NumSteps; f++)
             {
+                int offset = 0;
                 // Enumerate through each winding
                 foreach (var wdg in Tfmr.Windings)
                 {
@@ -123,8 +124,9 @@ namespace TfmrLib
                     for (int t = 0; t < (wdg.num_turns - 1); t++)
                     {
                         //Translate to dB
-                        V_response[t][f] = V_turn[f][t];
+                        V_response[offset + t][f] = V_turn[f][offset + t];
                     }
+                    offset += wdg.num_turns;
                 }
             }
 
