@@ -10,8 +10,7 @@ namespace TfmrLib
     {
         public string Label { get; set; } // e.g. "HV Upper", "HV Lower"
         public WindingGeometry Geometry { get; set; }
-        public NodeConnection StartNode { get; set; }
-        public NodeConnection EndNode { get; set; }
-        public ElectricalConnection ConnectionType { get; set; } = ElectricalConnection.Series;
+        public ConnectionNode StartNode { get; set; }
+        public ConnectionNode EndNode { get; set; }
     }
 }

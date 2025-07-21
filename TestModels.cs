@@ -87,7 +87,7 @@ namespace TfmrLib
                                 InterleavingPaperThickness_mm = 0.105,
                                 InsulationThickness_mm = 0.61 / 2
                             },
-                            NumConductorsInParallel = 2,
+                            NumParallelConductors = 2,
                             NumTurns = 144,
                             SpacerPattern = new RadialSpacerPattern
                             {
