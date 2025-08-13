@@ -9,8 +9,32 @@ namespace TfmrLib
     public class WindingSegment
     {
         public string Label { get; set; } // e.g. "HV Upper", "HV Lower"
-        public WindingGeometry Geometry { get; set; }
+        public Winding ParentWinding { get; set; }
+
+        private WindingGeometry _geometry;
+        public WindingGeometry Geometry
+        {
+            get => _geometry;
+            set
+            {
+                _geometry = value;
+                if (value != null)
+                    value.ParentSegment = this;
+            }
+        }
+
         public ConnectionNode StartNode { get; set; }
         public ConnectionNode EndNode { get; set; }
+
+        public WindingSegment()
+        {
+            // Default constructor
+        }
+
+        public WindingSegment(Winding wdg)
+        {
+            ParentWinding = wdg;
+        }
+
     }
 }

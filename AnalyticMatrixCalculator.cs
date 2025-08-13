@@ -15,17 +15,31 @@ namespace TfmrLib
         {
             var M = Matrix<double>.Build;
 
-            Matrix<double> L = M.Dense(wdg.num_turns, wdg.num_turns);
+            Matrix<double> L = M.Dense(wdg.NumConductors, wdg.NumConductors);
 
-            for (int i = 0; i < wdg.num_turns; i++)
+            foreach (var segment in wdg.Segments)
             {
-                (double r_i, double z_i) = wdg.GetTurnMidpoint(i);
-                L[i, i] = CalcSelfInductance(wdg.h_cond, wdg.t_cond, r_i, wdg.rho_c, f) / (2 * Math.PI * r_i);
-                for (int j = i + 1; j < wdg.num_turns; j++)
+                if (segment.Geometry == null)
                 {
-                    (double r_j, double z_j) = wdg.GetTurnMidpoint(j);
-                    L[i, j] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_i);
-                    L[j, i] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_j);
+                    continue; // Skip segments without geometry
+                }
+
+                var segmentGeometry = segment.Geometry;
+
+                int idx = 0;
+                for (int turn = 0; turn < segmentGeometry.NumTurns; turn++)
+                {
+                    for (int strand = 0; strand < segmentGeometry.NumParallelConductors; strand++)
+                    {
+                        (double r_i, double z_i) = segmentGeometry.GetConductorMidpoint(turn, strand);
+                        L[idx, idx] = CalcSelfInductance(segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_i, wdg.rho_c, f) / (2 * Math.PI * r_i);
+                        for (int j = idx + 1; j < wdg.num_turns; j++)
+                        {
+                            (double r_j, double z_j) = wdg.GetTurnMidpoint(j);
+                            L[i, j] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_i);
+                            L[j, i] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_j);
+                        }
+                    }
                 }
             }
 

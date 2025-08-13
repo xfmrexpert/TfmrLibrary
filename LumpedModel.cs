@@ -23,6 +23,7 @@ namespace TfmrLib
         public Matrix_d Q { get; set; }
         public Matrix_d Gamma { get; set; } // turn lengths
 
+        private int total_cdrs = 0;
         private int total_turns = 0;
 
         public LumpedModel(Transformer tfmr, IRLCMatrixCalculator matrixCalculator) : base(tfmr, matrixCalculator) { }
@@ -30,10 +31,12 @@ namespace TfmrLib
 
         protected override void Initialize()
         {
+            total_cdrs = 0;
             total_turns = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                total_turns += wdg.num_turns;
+                total_cdrs += wdg.NumConductors;
+                total_turns += wdg.NumTurns;
             }
 
             // Gamma is the diagonal matrix of conductors radii
@@ -42,11 +45,11 @@ namespace TfmrLib
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                if (wdg.NumConductors > 0)
                 {
                     // Add winding turn length to Gamma
                     Gamma.SetSubMatrix(start, start, M_d.DenseOfDiagonalVector(2d * Math.PI * wdg.Calc_TurnRadii()));
-                    start += wdg.num_turns;
+                    start += wdg.NumConductors;
                 }
             }
 

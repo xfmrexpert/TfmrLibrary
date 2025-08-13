@@ -19,6 +19,7 @@ namespace TfmrLib
 
     public class MTLModel : FreqResponseModel
     {
+        private int total_cdrs = 0;
         private int total_turns = 0; 
         private Matrix_d HA;
         private Matrix_d Gamma;
@@ -35,15 +36,15 @@ namespace TfmrLib
         // terminations of each winding turn when viewed as parallel transmission lines)
         public Matrix_d CalcHAforWdg(Winding wdg)   
         {
-            Matrix_d HA11 = M_d.DenseIdentity(wdg.num_turns);
-            Matrix_d HA21 = M_d.Dense(wdg.num_turns, wdg.num_turns);
-            Matrix_d HA12 = M_d.Dense(wdg.num_turns, wdg.num_turns);
-            for (int t = 0; t < (wdg.num_turns - 1); t++)
+            Matrix_d HA11 = M_d.DenseIdentity(wdg.NumConductors);
+            Matrix_d HA21 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
+            Matrix_d HA12 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
+            for (int t = 0; t < (wdg.NumConductors - 1); t++)
             {
                 HA12[t + 1, t] = -1.0;
             }
-            Matrix_d HA22 = M_d.Dense(wdg.num_turns, wdg.num_turns);
-            HA22[wdg.num_turns - 1, wdg.num_turns - 1] = 1.0;
+            Matrix_d HA22 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
+            HA22[wdg.NumConductors - 1, wdg.NumConductors - 1] = 1.0;
             Matrix_d HA1 = HA11.Append(HA12);
             Matrix_d HA2 = HA21.Append(HA22);
             return HA1.Stack(HA2);
@@ -55,11 +56,11 @@ namespace TfmrLib
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                if (wdg.NumConductors > 0)
                 {
                     Matrix_d HA_wdg = CalcHAforWdg(wdg);
                     HA.SetSubMatrix(start, start, HA_wdg);
-                    start += wdg.num_turns;
+                    start += wdg.NumConductors;
                 }
             }
             return HA;
@@ -67,32 +68,33 @@ namespace TfmrLib
 
         public Matrix_c CalcHBforWdg(Winding wdg, double f)
         {
-            Matrix_c HB11 = M_c.Dense(wdg.num_turns, wdg.num_turns);
+            Matrix_c HB11 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
             HB11[0, 0] = wdg.Rs+Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ls; //Source impedance
-            Matrix_c HB12 = M_c.Dense(wdg.num_turns, wdg.num_turns);
-            Matrix_c HB21 = M_c.Dense(wdg.num_turns, wdg.num_turns);
-            for (int t = 0; t < (wdg.num_turns - 1); t++)
+            Matrix_c HB12 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
+            Matrix_c HB21 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
+            for (int t = 0; t < (wdg.NumConductors - 1); t++)
             {
                 HB21[t, t + 1] = 1.0;
             }
-            Matrix_c HB22 = -1.0 * M_c.DenseIdentity(wdg.num_turns);
-            HB22[wdg.num_turns - 1, wdg.num_turns - 1] = wdg.Rl + Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ll; //Impedance to ground
+            Matrix_c HB22 = -1.0 * M_c.DenseIdentity(wdg.NumConductors);
+            HB22[wdg.NumConductors - 1, wdg.NumConductors - 1] = wdg.Rl + Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ll; //Impedance to ground
             Matrix_c HB1 = HB11.Append(HB12);
             Matrix_c HB2 = HB21.Append(HB22);
             Matrix_c HB = HB1.Stack(HB2);
             return HB;
         }
+
         public Matrix_c CalcHB(double f)
         {
             Matrix_c HB = M_c.Dense(2 * total_turns, 2 * total_turns);
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                if (wdg.NumTurns > 0)
                 {
                     Matrix_c HB_wdg = CalcHBforWdg(wdg, f);
                     HB.SetSubMatrix(start, start, HB_wdg);
-                    start += wdg.num_turns;
+                    start += wdg.NumConductors;
                 }
             }
             return HB;
@@ -137,10 +139,12 @@ namespace TfmrLib
 
         protected override void Initialize()
         {
+            total_cdrs = 0;
             total_turns = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                total_turns += wdg.num_turns;
+                total_cdrs += wdg.NumConductors;
+                total_turns += wdg.NumTurns;
             }
 
             C = MatrixCalculator.Calc_Cmatrix(Tfmr);
@@ -151,11 +155,11 @@ namespace TfmrLib
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                if (wdg.NumTurns > 0)
                 {
                     // Add winding turn length to Gamma
                     Gamma.SetSubMatrix(start, start, M_d.DenseOfDiagonalVector(2d * Math.PI * wdg.Calc_TurnRadii()));
-                    start += wdg.num_turns;
+                    start += wdg.NumConductors;
                 }
             }    
             

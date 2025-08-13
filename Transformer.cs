@@ -1,16 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using GeometryLib;
+using MathNet.Numerics.Providers.LinearAlgebra;
 
 namespace TfmrLib
 {
     public class Transformer
     {
         public Core Core { get; set; } = new Core();
-        public List<Winding> Windings { get; set; } = [];
+        
+        private readonly ObservableCollection<Winding> _windings = new();
+        public IList<Winding> Windings => _windings;
 
         public double eps_oil = 1.0; //2.2;
         public double ins_loss_factor = 0.03;
@@ -21,6 +25,40 @@ namespace TfmrLib
         public int phyExtBdry;
         public int phyAxis;
         public int phyInf;
+
+        public Transformer()
+        {
+            // Subscribe to collection changes to automatically set ParentTransformer
+            _windings.CollectionChanged += (sender, e) =>
+            {
+                if (e.NewItems != null)
+                {
+                    foreach (Winding winding in e.NewItems)
+                    {
+                        winding.ParentTransformer = this;
+                        foreach (var segment in winding.Segments)
+                        {
+                            segment.ParentWinding = winding;
+                            if (segment.Geometry != null)
+                                segment.Geometry.ParentSegment = segment;
+                        }
+                    }
+                }
+            };
+        }
+
+        public void AddWinding(Winding winding)
+        {
+            _windings.Add(winding);
+        }
+
+        public int NumConductors
+        {
+            get
+            {
+                return Windings.Sum(wdg => wdg.NumConductors);
+            }
+        }
 
         public Geometry GenerateGeometry()
         {

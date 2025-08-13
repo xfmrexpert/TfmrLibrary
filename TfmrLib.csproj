@@ -13,6 +13,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="AnalyticMatrixCalculator.cs" />
+    <Compile Remove="ExtMatrixCalculator.cs" />
+    <Compile Remove="FEMMatrixCalculator.cs" />
+    <Compile Remove="FreqResponseModel.cs" />
+    <Compile Remove="LumpedModel.cs" />
+    <Compile Remove="MTLModel.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="MathNet.Numerics.Data.Text" Version="5.0.0" />
   </ItemGroup>
 
