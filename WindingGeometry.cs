@@ -168,7 +168,7 @@ namespace TfmrLib
                     }
                     element = SpacerPattern.Elements[patternElement];
                 }
-                z += ConductorType.TotalHeight_mm + element.SpacerHeight_mm;
+                z += ConductorType.TotalHeight_mm + element.SpacerHeight_mm * SpacerPattern.AxialCompressionFactor;
             }
             z -= (ConductorType.TotalHeight_mm / 2);
             
@@ -197,16 +197,15 @@ namespace TfmrLib
             }
 
             int cond_idx = 0;
+            int patternElement = 0;
+            int discInPattern = 0;
+            double z_mid = DistanceAboveBottomYoke_mm + ConductorType.TotalHeight_mm / 2;
             for (int disc = 0; disc < NumDiscs; disc++)
             {
                 // Calculate the z-coordinate based on the disc and turn accounting for spacer pattern
                 // Sum the heights of all previous discs and spacers
-                double z_mid = DistanceAboveBottomYoke_mm;
-
-                int patternElement = 0;
-                int discInPattern = 0;
-                // Loop through discs up to the disc this conductor is in
-                for (int i = 0; i < disc; i++)
+                Console.WriteLine($"Disc {disc} of {NumDiscs}");
+                if (disc > 0)
                 {
                     SpacerPatternElement element = SpacerPattern.Elements[patternElement];
                     if (discInPattern >= element.Count)
@@ -219,15 +218,15 @@ namespace TfmrLib
                         }
                         element = SpacerPattern.Elements[patternElement];
                     }
-                    z_mid += ConductorType.TotalHeight_mm + element.SpacerHeight_mm;
+                    //Console.WriteLine($"Disc in Pattern {discInPattern} of {element.Count}");
+                    z_mid += ConductorType.TotalHeight_mm + element.SpacerHeight_mm * SpacerPattern.AxialCompressionFactor;
                     discInPattern++;
                 }
-                z_mid -= (ConductorType.TotalHeight_mm / 2);
+                Console.WriteLine($"z_mid: {z_mid}");
                 //if (z_mid > (WindingHeight_mm + DistanceAboveBottomYoke_mm))
                 //{
                 //    throw new InvalidOperationException("Calculated z_mid exceeds the winding height.");
                 //}
-                z_mid = z_mid - z_offset; // Adjust z_mid by the offset
 
                 for (int turn_in_disc = 0; turn_in_disc < TurnsPerDisc; turn_in_disc++)
                 {
@@ -250,7 +249,7 @@ namespace TfmrLib
                         }
 
 
-                        var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid);
+                        var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - z_offset);
 
                         phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
                         //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
