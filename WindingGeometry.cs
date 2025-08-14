@@ -338,10 +338,11 @@ namespace TfmrLib
 
     public class HelicalWindingGeometry : WindingGeometry
     {
-        public double RadialBuild_mm { get; set; }
         public RadialSpacerPattern SpacerPattern { get; set; }
 
-        public override double WindingHeight_mm => (NumTurns + 1) * ConductorType.TotalHeight_mm + SpacerPattern.Height_mm;
+        public int NumMechTurns => NumTurns + 1; // Total mechanical turns in the winding
+
+        public override double WindingHeight_mm => (NumMechTurns) * ConductorType.TotalHeight_mm + SpacerPattern.Height_mm;
 
         public override double WindingRadialBuild_mm => ConductorType.TotalWidth_mm * NumParallelConductors;
 
@@ -358,10 +359,82 @@ namespace TfmrLib
 
         public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
         {
-            var wdg_rect = geometry.AddRectangle(InnerRadius_mm + WindingRadialBuild_mm / 2, WindingHeight_mm / 2 + DistanceAboveBottomYoke_mm - Core.WindowHeight_mm / 2, WindingHeight_mm, WindingRadialBuild_mm);
-            var rtn_loops = new GeomLineLoop[1];
-            rtn_loops[0] = wdg_rect;
-            return rtn_loops;
+            bool include_ins = true;
+
+            // Setup conductor and insulation boundaries
+            var conductorins_bdrys = new GeomLineLoop[NumMechTurns * NumParallelConductors];
+            
+            phyTurnsCond = new int[NumMechTurns * NumParallelConductors];
+            phyTurnsCondBdry = new int[NumMechTurns * NumParallelConductors];
+            if (include_ins)
+            {
+                phyTurnsIns = new int[NumMechTurns * NumParallelConductors];
+            }
+
+            int cond_idx = 0;
+            int patternElement = 0;
+            int turnInPattern = 0;
+
+            double z_mid = DistanceAboveBottomYoke_mm + ConductorType.TotalHeight_mm / 2; //Turn 0
+
+            for (int turn = 0; turn < NumMechTurns; turn++)
+            {
+                // Calculate the z-coordinate based on the turn accounting for spacer pattern
+                // Sum the heights of all previous turns and spacers
+                
+                
+                if (turn > 0)
+                {
+                    SpacerPatternElement element = SpacerPattern.Elements[patternElement];
+                    if (turnInPattern >= element.Count)
+                    {
+                        patternElement++;
+                        turnInPattern = 0;
+                        if (patternElement >= SpacerPattern.Elements.Count)
+                        {
+                            patternElement = SpacerPattern.Elements.Count-1;
+                        }
+                        element = SpacerPattern.Elements[patternElement];
+                    }
+                    z_mid += ConductorType.TotalHeight_mm + element.SpacerHeight_mm * SpacerPattern.AxialCompressionFactor;
+                    turnInPattern++;
+                }
+
+                for (int strand = 0; strand < NumParallelConductors; strand++)
+                {
+                    double r_mid = InnerRadius_mm + strand * ConductorType.TotalWidth_mm + (ConductorType.TotalWidth_mm / 2);
+                    var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
+                    phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
+                    if (insulation_bdry != null)
+                    {
+                        var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
+                        phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                    }
+                    else
+                    {
+                        phyTurnsIns[cond_idx] = -1; // No insulation
+                    }
+
+                    //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
+                    // We probably don't want this if we aren't modelling the insulaion explicitly
+                    if (include_ins)
+                    {
+                        var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
+                        phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                        conductorins_bdrys[cond_idx] = insulation_bdry;
+                    }
+                    else
+                    {
+                        conductorins_bdrys[cond_idx] = conductor_bdry;
+                    }
+
+                    var conductor_surface = geometry.AddSurface(conductor_bdry);
+                    phyTurnsCond[cond_idx] = conductor_surface.AddTag();
+                    cond_idx++;
+                }
+            }
+            
+            return conductorins_bdrys;
         }
 
         public override (double r, double z) GetConductorMidpoint(int turn_idx, int strand_idx)
