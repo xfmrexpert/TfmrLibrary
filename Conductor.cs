@@ -14,6 +14,7 @@ namespace TfmrLib
         public abstract double BareHeight_mm { get; }
         public abstract double TotalWidth_mm { get; }
         public abstract double TotalHeight_mm { get; }
+        public double AxialCompressionFactor { get; set; } = 0.9;
         public abstract double ConductingArea_sqmm { get; }
         public double rho_c { get; set; }
 
@@ -35,7 +36,7 @@ namespace TfmrLib
 
         public override double TotalWidth_mm => StrandWidth_mm + 2 * InsulationThickness_mm;
 
-        public override double TotalHeight_mm => StrandHeight_mm + 2 * InsulationThickness_mm;
+        public override double TotalHeight_mm => StrandHeight_mm + 2 * InsulationThickness_mm * AxialCompressionFactor;
 
         public override double ConductingArea_sqmm => StrandWidth_mm * StrandHeight_mm - ((4 - Math.PI) * CornerRadius_mm * CornerRadius_mm);
 
@@ -57,7 +58,6 @@ namespace TfmrLib
         public double InterleavingPaperThickness_mm { get; set; } // Thickness of interleaving paper between layers
         public double InsulationThickness_mm { get; set; } // Thickness of insulation around the conductor
         public double Resistivity_Ohm_m { get; set; } // Resistivity of the conductor material in Ohm-meters
-        public double AxialCompressionFactor { get; set; } = 0.9;
 
         public override double BareWidth_mm
         {

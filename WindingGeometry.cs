@@ -19,6 +19,12 @@ namespace TfmrLib
         InterleavedDisc
     }
 
+    public enum Orientation
+    {
+        Radial, // Conductors are oriented radially
+        Axial   // Conductors are oriented axially
+    }
+
     // Some note on winding conductor indexing.  We have (I think) two general concepts: 1) where is 
     // the conductor in the winding cross-section and 2) where is the conductor within the logical layout of 
     // connected turns within the winding.  We'll use the term "strand" to refer to a single, discrete
@@ -34,9 +40,10 @@ namespace TfmrLib
         public Core Core => ParentTransformer?.Core;
 
         public WindingType Type { get; protected set; }
-        public int NumTurns { get; set; } // Total number of turns in the winding
+        public virtual int NumTurns { get; set; } // Total number of turns in the winding
         public Conductor ConductorType { get; set; }
         public int NumParallelConductors { get; set; } = 1; // Number of conductors in parallel
+        public Orientation ParallelOrientation { get; set; } = Orientation.Radial; // Orientation of parallel conductors
         public ConductorTransposition ExternalTransposition { get; set; } = new ConductorTransposition { Type = TranspositionType.None }; // Type of conductor transposition
         public double InnerRadius_mm { get; set; } // Inner radius of the winding in mm
 
@@ -340,7 +347,7 @@ namespace TfmrLib
     {
         public RadialSpacerPattern SpacerPattern { get; set; }
 
-        public int NumMechTurns => NumTurns + 1; // Total mechanical turns in the winding
+        public virtual int NumMechTurns => NumTurns + 1; // Total mechanical turns in the winding
 
         public override double WindingHeight_mm => (NumMechTurns) * ConductorType.TotalHeight_mm + SpacerPattern.Height_mm;
 
@@ -371,6 +378,9 @@ namespace TfmrLib
                 phyTurnsIns = new int[NumMechTurns * NumParallelConductors];
             }
 
+            GeomLineLoop? conductor_bdry;
+            GeomLineLoop? insulation_bdry;
+
             int cond_idx = 0;
             int patternElement = 0;
             int turnInPattern = 0;
@@ -379,58 +389,106 @@ namespace TfmrLib
 
             for (int turn = 0; turn < NumMechTurns; turn++)
             {
-                // Calculate the z-coordinate based on the turn accounting for spacer pattern
-                // Sum the heights of all previous turns and spacers
-                
-                
-                if (turn > 0)
+                if (ParallelOrientation == Orientation.Radial)
                 {
-                    SpacerPatternElement element = SpacerPattern.Elements[patternElement];
-                    if (turnInPattern >= element.Count)
+                    // Calculate the z-coordinate based on the turn accounting for spacer pattern
+                    // Sum the heights of all previous turns and spacers
+                    if (turn > 0)
                     {
-                        patternElement++;
-                        turnInPattern = 0;
-                        if (patternElement >= SpacerPattern.Elements.Count)
+                        SpacerPatternElement element = SpacerPattern.Elements[patternElement];
+                        if (turnInPattern >= element.Count)
                         {
-                            patternElement = SpacerPattern.Elements.Count-1;
+                            patternElement++;
+                            turnInPattern = 0;
+                            if (patternElement >= SpacerPattern.Elements.Count)
+                            {
+                                patternElement = SpacerPattern.Elements.Count - 1;
+                            }
+                            element = SpacerPattern.Elements[patternElement];
                         }
-                        element = SpacerPattern.Elements[patternElement];
+                        z_mid += ConductorType.TotalHeight_mm + element.SpacerHeight_mm * SpacerPattern.AxialCompressionFactor;
+                        turnInPattern++;
                     }
-                    z_mid += ConductorType.TotalHeight_mm + element.SpacerHeight_mm * SpacerPattern.AxialCompressionFactor;
-                    turnInPattern++;
+
+                    for (int strand = 0; strand < NumParallelConductors; strand++)
+                    {
+                        double r_mid = InnerRadius_mm + strand * ConductorType.TotalWidth_mm + (ConductorType.TotalWidth_mm / 2);
+                        (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
+                        phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
+                        if (insulation_bdry != null)
+                        {
+                            var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
+                            phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                        }
+                        else
+                        {
+                            phyTurnsIns[cond_idx] = -1; // No insulation
+                        }
+
+                        //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
+                        // We probably don't want this if we aren't modelling the insulaion explicitly
+                        if (include_ins)
+                        {
+                            var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
+                            phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                            conductorins_bdrys[cond_idx] = insulation_bdry;
+                        }
+                        else
+                        {
+                            conductorins_bdrys[cond_idx] = conductor_bdry;
+                        }
+
+                        var conductor_surface = geometry.AddSurface(conductor_bdry);
+                        phyTurnsCond[cond_idx] = conductor_surface.AddTag();
+                        cond_idx++;
+                    }
                 }
-
-                for (int strand = 0; strand < NumParallelConductors; strand++)
+                else if (ParallelOrientation == Orientation.Axial)
                 {
-                    double r_mid = InnerRadius_mm + strand * ConductorType.TotalWidth_mm + (ConductorType.TotalWidth_mm / 2);
-                    var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
-                    phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
-                    if (insulation_bdry != null)
+                    for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
-                        var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                        phyTurnsIns[cond_idx] = insulation_surface.AddTag();
-                    }
-                    else
-                    {
-                        phyTurnsIns[cond_idx] = -1; // No insulation
+                        // For axial orientation, we need to calculate the z-coordinate based on the turn number
+                        // and the number of parallel conductors.
+                        if (cond_idx > 0)
+                        {
+                            SpacerPatternElement element = SpacerPattern.Elements[patternElement];
+                            if (turnInPattern >= element.Count)
+                            {
+                                patternElement++;
+                                turnInPattern = 0;
+                                if (patternElement >= SpacerPattern.Elements.Count)
+                                {
+                                    patternElement = SpacerPattern.Elements.Count - 1;
+                                }
+                                element = SpacerPattern.Elements[patternElement];
+                            }
+                            z_mid += ConductorType.TotalHeight_mm + element.SpacerHeight_mm * SpacerPattern.AxialCompressionFactor;
+                            turnInPattern++;
+                        }
+
+                        // For axial orientation, we need to calculate the radial position based on the turn number
+                        // and the number of parallel conductors.
+                        double r_mid = InnerRadius_mm + (ConductorType.TotalWidth_mm / 2);
+                        (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
+                        phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
+                        if (insulation_bdry != null)
+                        {
+                            var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
+                            phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                            conductorins_bdrys[cond_idx] = insulation_bdry;
+                        }
+                        else
+                        {
+                            conductorins_bdrys[cond_idx] = insulation_bdry;
+                        }
+
+                        var conductor_surface = geometry.AddSurface(conductor_bdry);
+                        phyTurnsCond[cond_idx] = conductor_surface.AddTag();
+                        cond_idx++;
+
                     }
 
-                    //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
-                    // We probably don't want this if we aren't modelling the insulaion explicitly
-                    if (include_ins)
-                    {
-                        var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                        phyTurnsIns[cond_idx] = insulation_surface.AddTag();
-                        conductorins_bdrys[cond_idx] = insulation_bdry;
-                    }
-                    else
-                    {
-                        conductorins_bdrys[cond_idx] = conductor_bdry;
-                    }
-
-                    var conductor_surface = geometry.AddSurface(conductor_bdry);
-                    phyTurnsCond[cond_idx] = conductor_surface.AddTag();
-                    cond_idx++;
+                    
                 }
             }
             
@@ -451,6 +509,12 @@ namespace TfmrLib
     public class MultiStartWindingGeometry : HelicalWindingGeometry
     {
         public int NumberOfStarts { get; set; }
+
+        public int NumberOfTurnsPerStart { get; set; }
+
+        public override int NumTurns => NumberOfStarts * NumberOfTurnsPerStart;
+
+        public override int NumMechTurns => NumberOfStarts * (NumberOfTurnsPerStart + 1); // Total mechanical turns in the winding
 
         public MultiStartWindingGeometry()
         {

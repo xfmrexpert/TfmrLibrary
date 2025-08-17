@@ -70,7 +70,7 @@ namespace TfmrLib
                                             new() { Count = 9, SpacerHeight_mm = 4.2 }
                                         }
                                     },
-                                    InnerRadius_mm = 765.0,
+                                    InnerRadius_mm = 765.0/2,
                                     DistanceAboveBottomYoke_mm = 110.0
                                 }
                             }
@@ -130,7 +130,7 @@ namespace TfmrLib
                                             new() { Count = 11, SpacerHeight_mm = 4.2 }
                                         }
                                     },
-                                    InnerRadius_mm = 1131.0,
+                                    InnerRadius_mm = 1131.0/2,
                                     DistanceAboveBottomYoke_mm = 50.0
                                 }
                             }
@@ -191,30 +191,48 @@ namespace TfmrLib
                                             new() { Count = 1, SpacerHeight_mm = 8.6 }
                                         }
                                     },
-                                    InnerRadius_mm = 871.0,
+                                    InnerRadius_mm = 871.0/2,
                                     DistanceAboveBottomYoke_mm = 80.0
                                 }
                             }
                         }
-                    }
-                    //,
-
-                    //// RW Winding
-                    //new Winding
-                    //{
-                    //    Name = "RW",
-                    //    Segments =
-                    //    {
-                    //        new WindingSegment
-                    //        {
-                    //            Label = "RW Main",
-                    //            Geometry = new MultiStartWindingGeometry
-                    //            {
-                    //                // Add properties as needed
-                    //            }
-                    //        }
-                    //    }
-                    //}
+                    },
+                    // RV Winding
+                    new Winding
+                    {
+                        Name = "RV",
+                        Segments =
+                        {
+                            new WindingSegment
+                            {
+                                Label = "RV Main",
+                                Geometry = new MultiStartWindingGeometry
+                                {
+                                    ConductorType = new RectConductor
+                                    {
+                                        StrandHeight_mm = 5.0,
+                                        StrandWidth_mm = 12.0,
+                                        InsulationThickness_mm = 1.22/2,
+                                    },
+                                    NumberOfStarts=10,
+                                    NumberOfTurnsPerStart = 6,
+                                    NumParallelConductors = 2,
+                                    ParallelOrientation = Orientation.Axial,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 35.0,
+                                        NumSpacers_Circumference = 32,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            new() { Count = 119, SpacerHeight_mm = 6.4 }
+                                        }
+                                    },
+                                    InnerRadius_mm = 1349.0/2,
+                                    DistanceAboveBottomYoke_mm = 215.0
+                                }
+                            }
+                        }
+                    },
                 }
             };
 
