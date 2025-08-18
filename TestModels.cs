@@ -25,7 +25,7 @@ namespace TfmrLib
                     // TV Winding
                     new Winding
                     {
-                        Name = "TV",
+                        Label = "TV",
                         Segments =
                         {
                             new WindingSegment
@@ -80,7 +80,7 @@ namespace TfmrLib
                     // LV Winding
                     new Winding
                     {
-                        Name = "LV",
+                        Label = "LV",
                         Segments =
                         {
                             new WindingSegment
@@ -140,7 +140,7 @@ namespace TfmrLib
                     // HV Winding
                     new Winding
                     {
-                        Name = "HV",
+                        Label = "HV",
                         Segments =
                         {
                             new WindingSegment
@@ -200,7 +200,7 @@ namespace TfmrLib
                     // RV Winding
                     new Winding
                     {
-                        Name = "RV",
+                        Label = "RV",
                         Segments =
                         {
                             new WindingSegment

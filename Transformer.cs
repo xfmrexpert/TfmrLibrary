@@ -12,7 +12,9 @@ namespace TfmrLib
     public class Transformer
     {
         public Core Core { get; set; } = new Core();
-        
+
+        public TagManager TagManager { get; }   // Scoped to this transformer
+
         private readonly ObservableCollection<Winding> _windings = new();
         public IList<Winding> Windings => _windings;
 
@@ -26,9 +28,10 @@ namespace TfmrLib
         public int phyAxis;
         public int phyInf;
 
-        public Transformer()
+        public Transformer(TagManager? tagManager = null)
         {
-            // Subscribe to collection changes to automatically set ParentTransformer
+            TagManager = tagManager ?? new TagManager();
+
             _windings.CollectionChanged += (sender, e) =>
             {
                 if (e.NewItems != null)
@@ -36,6 +39,7 @@ namespace TfmrLib
                     foreach (Winding winding in e.NewItems)
                     {
                         winding.ParentTransformer = this;
+                        winding.Id = Windings.IndexOf(winding);
                         foreach (var segment in winding.Segments)
                         {
                             segment.ParentWinding = winding;
@@ -49,6 +53,7 @@ namespace TfmrLib
 
         public void AddWinding(Winding winding)
         {
+            winding.ParentTransformer = this;
             _windings.Add(winding);
         }
 
@@ -65,20 +70,21 @@ namespace TfmrLib
             var geometry = new Geometry();
 
             // Left boundary (axis if core radius is 0)
-            var pt_origin = geometry.AddPoint(r_core, 0, 0.1);
-            var pt_axis_top = geometry.AddPoint(r_core, bdry_radius, 0.1);
-            var pt_axis_top_inf = geometry.AddPoint(r_core, 1.1 * bdry_radius, 0.1);
-            var pt_axis_bottom = geometry.AddPoint(r_core, -bdry_radius, 0.1);
-            var pt_axis_bottom_inf = geometry.AddPoint(r_core, -1.1 * bdry_radius, 0.1);
-            var axis = geometry.AddLine(pt_axis_bottom, pt_axis_top);
-            var axis_top_inf = geometry.AddLine(pt_axis_top, pt_axis_top_inf);
-            var axis_bottom_inf = geometry.AddLine(pt_axis_bottom_inf, pt_axis_bottom);
-            phyAxis = axis.AddTag();
-            var right_bdry = geometry.AddArc(pt_axis_top, pt_axis_bottom, bdry_radius, -Math.PI);
-            var right_bdry_inf = geometry.AddArc(pt_axis_top_inf, pt_axis_bottom_inf, 1.1 * bdry_radius, -Math.PI);
-            var outer_bdry = geometry.AddLineLoop(axis, right_bdry);
-            var outer_bdry_inf = geometry.AddLineLoop(axis_bottom_inf, right_bdry, axis_top_inf, right_bdry_inf);
-            phyExtBdry = outer_bdry.AddTag();
+            //var pt_origin = geometry.AddPoint(r_core, 0, 0.1);
+            //var pt_axis_top = geometry.AddPoint(r_core, bdry_radius, 0.1);
+            //var pt_axis_top_inf = geometry.AddPoint(r_core, 1.1 * bdry_radius, 0.1);
+            //var pt_axis_bottom = geometry.AddPoint(r_core, -bdry_radius, 0.1);
+            //var pt_axis_bottom_inf = geometry.AddPoint(r_core, -1.1 * bdry_radius, 0.1);
+            //var axis = geometry.AddLine(pt_axis_bottom, pt_axis_top);
+            //var axis_top_inf = geometry.AddLine(pt_axis_top, pt_axis_top_inf);
+            //var axis_bottom_inf = geometry.AddLine(pt_axis_bottom_inf, pt_axis_bottom);
+            //phyAxis = axis.AddTag();
+            //var right_bdry = geometry.AddArc(pt_axis_top, pt_axis_bottom, bdry_radius, -Math.PI);
+            //var right_bdry_inf = geometry.AddArc(pt_axis_top_inf, pt_axis_bottom_inf, 1.1 * bdry_radius, -Math.PI);
+            //var outer_bdry = geometry.AddLineLoop(axis, right_bdry);
+            //var outer_bdry_inf = geometry.AddLineLoop(axis_bottom_inf, right_bdry, axis_top_inf, right_bdry_inf);
+            //phyExtBdry = outer_bdry.AddTag();
+            var outer_bdry = Core.GenerateGeometry(ref geometry);
 
             List<GeomLineLoop> conductorins_bdrys = new List<GeomLineLoop>();
             
@@ -90,8 +96,8 @@ namespace TfmrLib
             var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys.ToArray());
             phyAir = interior_surface.AddTag();
 
-            var inf_surface = geometry.AddSurface(outer_bdry_inf);
-            phyInf = inf_surface.AddTag();
+            //var inf_surface = geometry.AddSurface(outer_bdry_inf);
+            //phyInf = inf_surface.AddTag();
 
             return geometry;
         }

@@ -12,7 +12,8 @@ namespace TfmrLib
 {
     public class Winding
     {
-        public string Name { get; set; } // HV, LV, RW, etc.
+        public int Id { get; set; }
+        public string Label { get; set; } // HV, LV, RW, etc.
         
         public Transformer ParentTransformer { get; set; }
 
@@ -74,6 +75,7 @@ namespace TfmrLib
                     foreach (WindingSegment segment in e.NewItems)
                     {
                         segment.ParentWinding = this;
+                        segment.Id = _segments.IndexOf(segment);
                         if (segment.Geometry != null)
                             segment.Geometry.ParentSegment = segment;
                     }
@@ -94,6 +96,7 @@ namespace TfmrLib
 
         public void AddSegment(WindingSegment segment)
         {
+            segment.ParentWinding = this;
             _segments.Add(segment);
         }
     }

@@ -8,6 +8,7 @@ namespace TfmrLib
 {
     public class WindingSegment
     {
+        public int Id { get; set; }
         public string Label { get; set; } // e.g. "HV Upper", "HV Lower"
         public Winding ParentWinding { get; set; }
 

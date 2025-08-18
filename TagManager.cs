@@ -9,11 +9,15 @@ namespace TfmrLib
 {
     public enum TagType
     {
-        None = 0,
-        Conductor = 5,
-        Insulation = 6,
-        Core = 7,
-        Other = 8
+        None,
+        Axis,
+        TopYoke,
+        BottomYoke,
+        OuterBoundary,
+        ConductorBoundary,
+        ConductorSurface,
+        InsulationBoundary,
+        InsulationSurface
     }
 
     // Immutable composite key for the winding location
@@ -46,6 +50,25 @@ namespace TfmrLib
             {
                 entity = value;
                 return true;
+            }
+            return false;
+        }
+
+        public bool TryGetLocationByTag(int tag, out LocationKey loc, out TagType type)
+        {
+            loc = default;
+            type = TagType.None;
+            foreach (var kvp in _map)
+            {
+                foreach (var innerKvp in kvp.Value)
+                {
+                    if (innerKvp.Value == tag)
+                    {
+                        loc = kvp.Key;
+                        type = innerKvp.Key;
+                        return true;
+                    }
+                }
             }
             return false;
         }
@@ -110,6 +133,11 @@ namespace TfmrLib
                 return true;
             }
             return false;
+        }
+
+        public bool TryGetLocationByTag(int index, out LocationKey loc, out TagType type)
+        {
+            return entityLocationIndex.TryGetLocationByTag(index, out loc, out type);
         }
     }
 }

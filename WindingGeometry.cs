@@ -39,6 +39,10 @@ namespace TfmrLib
         public Transformer ParentTransformer => ParentWinding?.ParentTransformer;
         public Core Core => ParentTransformer?.Core;
 
+        protected TagManager Tags =>
+        ParentTransformer?.TagManager
+        ?? throw new InvalidOperationException("TagManager not available (Transformer not set).");
+
         public WindingType Type { get; protected set; }
         public virtual int NumTurns { get; set; } // Total number of turns in the winding
         public Conductor ConductorType { get; set; }
@@ -207,6 +211,7 @@ namespace TfmrLib
             int patternElement = 0;
             int discInPattern = 0;
             double z_mid = DistanceAboveBottomYoke_mm + ConductorType.TotalHeight_mm / 2;
+            int logicalTurn = 0;
             for (int disc = 0; disc < NumDiscs; disc++)
             {
                 // Calculate the z-coordinate based on the disc and turn accounting for spacer pattern
@@ -237,6 +242,7 @@ namespace TfmrLib
 
                 for (int turn_in_disc = 0; turn_in_disc < TurnsPerDisc; turn_in_disc++)
                 {
+                    logicalTurn += 1;
                     for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
                         double r_mid;
@@ -258,13 +264,16 @@ namespace TfmrLib
 
                         var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - z_offset);
 
-                        phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
+                        var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, logicalTurn, strand);
+                        phyTurnsCondBdry[cond_idx] = Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
+                        int insTag = Tags.TagEntityByLocation(insulation_bdry, loc, TagType.InsulationBoundary);
+
                         //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
                         // We probably don't want this if we aren't modelling the insulaion explicitly
                         if (include_ins)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
                             conductorins_bdrys[cond_idx] = insulation_bdry;
                         }
                         else
@@ -273,7 +282,7 @@ namespace TfmrLib
                         }
 
                         var conductor_surface = geometry.AddSurface(conductor_bdry);
-                        phyTurnsCond[cond_idx] = conductor_surface.AddTag();
+                        phyTurnsCond[cond_idx] = Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
                         cond_idx++;
                     }
                 }
@@ -412,13 +421,14 @@ namespace TfmrLib
 
                     for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
+                        var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, turn, strand);
                         double r_mid = InnerRadius_mm + strand * ConductorType.TotalWidth_mm + (ConductorType.TotalWidth_mm / 2);
                         (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
-                        phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
+                        phyTurnsCondBdry[cond_idx] = Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
                         if (insulation_bdry != null)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
                         }
                         else
                         {
@@ -430,7 +440,7 @@ namespace TfmrLib
                         if (include_ins)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
                             conductorins_bdrys[cond_idx] = insulation_bdry;
                         }
                         else
@@ -439,7 +449,7 @@ namespace TfmrLib
                         }
 
                         var conductor_surface = geometry.AddSurface(conductor_bdry);
-                        phyTurnsCond[cond_idx] = conductor_surface.AddTag();
+                        phyTurnsCond[cond_idx] = Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
                         cond_idx++;
                     }
                 }
@@ -447,6 +457,8 @@ namespace TfmrLib
                 {
                     for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
+                        var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, turn, strand);
+
                         // For axial orientation, we need to calculate the z-coordinate based on the turn number
                         // and the number of parallel conductors.
                         if (cond_idx > 0)
@@ -470,11 +482,11 @@ namespace TfmrLib
                         // and the number of parallel conductors.
                         double r_mid = InnerRadius_mm + (ConductorType.TotalWidth_mm / 2);
                         (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
-                        phyTurnsCondBdry[cond_idx] = conductor_bdry.AddTag();
+                        phyTurnsCondBdry[cond_idx] = Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorSurface);
                         if (insulation_bdry != null)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = insulation_surface.AddTag();
+                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
                             conductorins_bdrys[cond_idx] = insulation_bdry;
                         }
                         else
@@ -483,7 +495,7 @@ namespace TfmrLib
                         }
 
                         var conductor_surface = geometry.AddSurface(conductor_bdry);
-                        phyTurnsCond[cond_idx] = conductor_surface.AddTag();
+                        phyTurnsCond[cond_idx] = Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
                         cond_idx++;
 
                     }
