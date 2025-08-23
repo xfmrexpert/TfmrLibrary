@@ -22,7 +22,7 @@ namespace TfmrLib
 
             // FIXME: We need to tag the axis and the outer boundary
 
-            return geometry.AddRectangle(CoreLegRadius_mm, 0, WindowHeight_mm, WindowWidth_mm);
+            return geometry.AddRectangle(CoreLegRadius_mm + WindowWidth_mm / 2, 0, WindowHeight_mm, WindowWidth_mm);
         }
     }
 }

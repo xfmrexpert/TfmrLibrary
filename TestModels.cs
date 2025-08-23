@@ -14,7 +14,7 @@ namespace TfmrLib
             {
                 Core = new Core
                 {
-                    CoreLegRadius_mm = 700.0,
+                    CoreLegRadius_mm = 700.0 / 2,
                     NumLegs = 3,
                     NumWoundLegs = 3,
                     WindowWidth_mm = 715.0,
@@ -229,6 +229,311 @@ namespace TfmrLib
                                     },
                                     InnerRadius_mm = 1349.0/2,
                                     DistanceAboveBottomYoke_mm = 215.0
+                                }
+                            }
+                        }
+                    },
+                }
+            };
+
+            return transformer;
+        }
+
+        public static Transformer TB904_SinglePhase()
+        {
+            var transformer = new Transformer
+            {
+                Core = new Core
+                {
+                    CoreLegRadius_mm = 720.0/2,
+                    NumLegs = 3,
+                    NumWoundLegs = 1,
+                    WindowWidth_mm = 530.0,
+                    WindowHeight_mm = 2190.0
+                },
+                Windings =
+                {
+                    // TV Winding
+                    new Winding
+                    {
+                        Label = "TV",
+                        Segments =
+                        {
+                            new WindingSegment
+                            {
+                                Label = "TV Main",
+                                Geometry = new HelicalWindingGeometry
+                                {
+                                    NumParallelConductors = 2,
+                                    ParallelOrientation = Orientation.Axial,
+                                    ConductorType = new CTCConductor
+                                    {
+                                        NumStrands = 29,
+                                        StrandHeight_mm = 3.5,
+                                        StrandWidth_mm = 1.5,
+                                        StrandInsulationThickness_mm = 0.15 / 2,
+                                        InterleavingPaperThickness_mm = 0.105,
+                                        InsulationThickness_mm = 0.45 / 2
+                                    },
+                                    NumTurns = 83,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 30.0,
+                                        NumSpacers_Circumference = 28,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            new() { Count = 13, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 9, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 11, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 9, SpacerHeight_mm = 4.2 }
+                                        }
+                                    },
+                                    InnerRadius_mm = 756.0/2,
+                                    DistanceAboveBottomYoke_mm = 60.0
+                                }
+                            }
+                        }
+                    },
+
+                    // LV Winding
+                    new Winding
+                    {
+                        Label = "LV",
+                        Segments =
+                        {
+                            new WindingSegment
+                            {
+                                Label = "LV Main",
+                                Geometry = new DiscWindingGeometry
+                                {
+                                    ConductorType = new CTCConductor
+                                    {
+                                        NumStrands = 21,
+                                        StrandHeight_mm = 5.0,
+                                        StrandWidth_mm = 1.5,
+                                        StrandInsulationThickness_mm = 0.15 / 2,
+                                        InterleavingPaperThickness_mm = 0.105,
+                                        InsulationThickness_mm = 0.91 / 2
+                                    },
+                                    NumParallelConductors = 2,
+                                    ParallelOrientation = Orientation.Radial,
+                                    NumTurns = 240,
+                                    NumDiscs = 128,
+                                    TurnsPerDisc = 2,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 30.0,
+                                        NumSpacers_Circumference = 28,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 9, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 9, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 9, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 9, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 10, SpacerHeight_mm = 4.2 }
+                                        }
+                                    },
+                                    InnerRadius_mm = 938.0/2,
+                                    DistanceAboveBottomYoke_mm = 60.0
+                                }
+                            }
+                        }
+                    },
+
+                    // HV Winding
+                    new Winding
+                    {
+                        Label = "HV",
+                        Segments =
+                        {
+                            new WindingSegment
+                            {
+                                Label = "HV Upper",
+                                Geometry = new InterleavedDiscWindingGeometry
+                                {
+                                    ConductorType = new RectConductor
+                                    {
+                                        StrandHeight_mm = 9.9,
+                                        StrandWidth_mm = 2.7,
+                                        InsulationThickness_mm = 1.52 / 2
+                                    },
+                                    NumTurns = 800,
+                                    NumDiscs = 62,
+                                    TurnsPerDisc = 13,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 35.0,
+                                        NumSpacers_Circumference = 32,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            new CompositeSpacerPatternElement { Count = 4, SubElements=[new () { Count = 1, SpacerHeight_mm = 4.2 }, new() { Count = 1, SpacerHeight_mm = 6.4 }] },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            //new() { Count = 2, SpacerHeight_mm = 10.6 },
+                                            new CompositeSpacerPatternElement { Count = 2, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
+                                            new() { Count = 4, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 6, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 8, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 8, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 4, SpacerHeight_mm = 4.2 },
+                                            //new() { Count = 7, SpacerHeight_mm = 10.6 }
+                                            new CompositeSpacerPatternElement { Count = 7, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
+                                        }
+                                    },
+                                    InnerRadius_mm = 1242.0/2,
+                                    DistanceAboveBottomYoke_mm = 1043.2
+                                }
+                            },
+                            new WindingSegment
+                            {
+                                Label = "HV Lower",
+                                Geometry = new InterleavedDiscWindingGeometry
+                                {
+                                    ConductorType = new RectConductor
+                                    {
+                                        StrandHeight_mm = 9.9,
+                                        StrandWidth_mm = 2.7,
+                                        InsulationThickness_mm = 1.52 / 2
+                                    },
+                                    NumTurns = 800,
+                                    NumDiscs = 62,
+                                    TurnsPerDisc = 13,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 35.0,
+                                        NumSpacers_Circumference = 32,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            //new() { Count = 7, SpacerHeight_mm = 10.6 },
+                                            new CompositeSpacerPatternElement { Count = 7, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
+                                            new() { Count = 4, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 8, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 8, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 6, SpacerHeight_mm = 4.2 },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            new() { Count = 4, SpacerHeight_mm = 4.2 },
+                                            //new() { Count = 2, SpacerHeight_mm = 10.6 },
+                                            new CompositeSpacerPatternElement { Count = 2, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
+                                            new() { Count = 1, SpacerHeight_mm = 5.3 },
+                                            //new() { Count = 4, SpacerHeight_mm = 10.6 }
+                                            new CompositeSpacerPatternElement { Count = 4, SubElements=[new () { Count = 1, SpacerHeight_mm = 4.2 }, new() { Count = 1, SpacerHeight_mm = 6.4 }] },
+                                        }
+                                    },
+                                    InnerRadius_mm = 1242.0/2,
+                                    DistanceAboveBottomYoke_mm = 60.0
+                                }
+                            }
+                        }
+                    },
+                    // RV Winding
+                    new Winding
+                    {
+                        Label = "RV",
+                        Segments =
+                        {
+                            new WindingSegment
+                            {
+                                Label = "RV Upper",
+                                Geometry = new InterleavedDiscWindingGeometry
+                                {
+                                    ConductorType = new RectConductor
+                                    {
+                                        StrandHeight_mm = 14.2,
+                                        StrandWidth_mm = 2.2,
+                                        InsulationThickness_mm = 1.52/2,
+                                    },
+                                    NumTurns = 80,
+                                    NumDiscs = 20,
+                                    TurnsPerDisc = 4,
+                                    NumParallelConductors = 2,
+                                    ParallelOrientation = Orientation.Radial,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 40.0,
+                                        NumSpacers_Circumference = 32,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            new() { Count = 19, SpacerHeight_mm = 5.3 }
+                                        }
+                                    },
+                                    InnerRadius_mm = 1612.0/2,
+                                    DistanceAboveBottomYoke_mm = 1340.0
+                                }
+                            },
+                            new WindingSegment
+                            {
+                                Label = "RV Lower",
+                                Geometry = new InterleavedDiscWindingGeometry
+                                {
+                                    ConductorType = new RectConductor
+                                    {
+                                        StrandHeight_mm = 14.2,
+                                        StrandWidth_mm = 2.2,
+                                        InsulationThickness_mm = 1.52/2,
+                                    },
+                                    NumTurns = 80,
+                                    NumDiscs = 20,
+                                    TurnsPerDisc = 4,
+                                    NumParallelConductors = 2,
+                                    ParallelOrientation = Orientation.Radial,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 40.0,
+                                        NumSpacers_Circumference = 32,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            new() { Count = 19, SpacerHeight_mm = 5.3 }
+                                        }
+                                    },
+                                    InnerRadius_mm = 1612.0/2,
+                                    DistanceAboveBottomYoke_mm = 333.0
                                 }
                             }
                         }
