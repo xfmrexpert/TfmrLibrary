@@ -6,9 +6,12 @@ namespace TfmrLib
 {
     public class DiscWindingGeometry : WindingGeometry
     {
-       public virtual int NumDiscs { get; set; }
+        public virtual int NumDiscs { get; set; }
         public int TurnsPerDisc { get; set; }
         public RadialSpacerPattern SpacerPattern { get; set; }
+
+        protected int[] PositionTurnMap;
+        protected int[] PositionStrandMap;
 
         public DiscWindingGeometry()
         {
@@ -95,6 +98,25 @@ namespace TfmrLib
             
             //Console.WriteLine($"turn: {n} disc: {disc} turn in disc: {turn} r: {r} z:{z}");
             return (r, z);
+        }
+
+        protected virtual void BuildTurnMap()
+        {
+            PositionTurnMap = new int[NumTurns * NumParallelConductors];
+            PositionStrandMap = new int[NumTurns * NumParallelConductors];
+            int logicalTurn = 0;
+            for (int disc = 0; disc < NumDiscs; disc++)
+            {
+                for (int turn_in_disc = 0; turn_in_disc < TurnsPerDisc; turn_in_disc++)
+                {
+                    PositionStrandMap[logicalTurn] = 0;
+                    for (int strand = 0; strand < NumParallelConductors; strand++)
+                    {
+                        logicalTurn += 1;
+                        PhysToLogicalTurnMap[logicalTurn] = logicalTurn;
+                    }
+                }
+            }
         }
 
         public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
