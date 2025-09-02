@@ -56,7 +56,7 @@
                         {
                             case InterleavingType.None:
                                 // No interleaving
-                                PhysToLogicalTurnMap[lTurn] = lTurn;
+                                //PhysToLogicalTurnMap[lTurn] = lTurn;
                                 break;
                             case InterleavingType.Partial:
                             case InterleavingType.Full:
@@ -65,13 +65,13 @@
                                 {
                                     // First half of the turns in the pair
                                     physical_turn++;
-                                    PhysToLogicalTurnMap[physical_turn] = disc1 * TurnsPerDisc + lTurn;
+                                    //PhysToLogicalTurnMap[physical_turn] = disc1 * TurnsPerDisc + lTurn;
                                 }
                                 else
                                 {
                                     // Second half of the turns in the pair
                                     physical_turn++;
-                                    PhysToLogicalTurnMap[physical_turn] = disc2 * TurnsPerDisc + (lTurn - TurnsPerDisc);
+                                    //PhysToLogicalTurnMap[physical_turn] = disc2 * TurnsPerDisc + (lTurn - TurnsPerDisc);
                                 }
                                 break;
                         }

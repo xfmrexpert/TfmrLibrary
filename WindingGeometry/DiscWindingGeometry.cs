@@ -113,7 +113,7 @@ namespace TfmrLib
                     for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
                         logicalTurn += 1;
-                        PhysToLogicalTurnMap[logicalTurn] = logicalTurn;
+                        //PhysToLogicalTurnMap[logicalTurn] = logicalTurn;
                     }
                 }
             }
