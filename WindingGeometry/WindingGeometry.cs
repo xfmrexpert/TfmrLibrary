@@ -24,6 +24,9 @@ namespace TfmrLib
         Axial   // Conductors are oriented axially
     }
 
+    public record PhysicalConductorIndex(int Disc, int Layer, int Strand);
+    public record LogicalConductorIndex(int Turn, int Strand);
+
     // Some note on winding conductor indexing.  We have (I think) two general concepts: 1) where is 
     // the conductor in the winding cross-section and 2) where is the conductor within the logical layout of 
     // connected turns within the winding.  We'll use the term "strand" to refer to a single, discrete
@@ -47,7 +50,7 @@ namespace TfmrLib
         public Conductor ConductorType { get; set; }
         public int NumParallelConductors { get; set; } = 1; // Number of conductors in parallel
         public Orientation ParallelOrientation { get; set; } = Orientation.Radial; // Orientation of parallel conductors
-        public ConductorTransposition ExternalTransposition { get; set; } = new ConductorTransposition { Type = TranspositionType.None }; // Type of conductor transposition
+        public List<ConductorTransposition> ExternalTranspositions { get; set; } = []; // Type of conductor transposition
         public double InnerRadius_mm { get; set; } // Inner radius of the winding in mm
 
         public double DistanceAboveBottomYoke_mm { get; set; } = 4.0; // Distance from the bottom yoke to the bottom of the winding
@@ -77,21 +80,8 @@ namespace TfmrLib
 
         public abstract GeomLineLoop[] GenerateGeometry(ref Geometry geometry);
 
-        public LinAlg.Vector<double> Calc_TurnRadii()
-        {
-            LinAlg.Vector<double> r_c = LinAlg.Vector<double>.Build.Dense(NumTurns * NumParallelConductors);
-            for (int turn = 0; turn < NumTurns; turn++)
-            {
-                for (int strand = 0; strand < NumParallelConductors; strand++)
-                {
-                    r_c[strand] = GetConductorMidpoint(turn, strand).r;
-                }
-            }
-            return r_c;
-        }
-
         public abstract Matrix<double> Calc_Rmatrix(double f = 60);
-        
+
     }
     
 }

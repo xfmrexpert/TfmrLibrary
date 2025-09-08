@@ -136,6 +136,9 @@ namespace TfmrLib
 
             int cond_idx = 0;
             double z_mid = DistanceAboveBottomYoke_mm + WindingHeight_mm - ConductorType.TotalHeight_mm / 2;
+
+            // Logical turn is a shit name.  What we mean here is the turn as it appears in the physical winding numbered from
+            // out -> in -> out and from bottom -> top.  
             int logicalTurn = 0;
 
             // We need NumDiscs - 1 inter-disc gaps.
@@ -153,6 +156,10 @@ namespace TfmrLib
                     z_mid -= ConductorType.TotalHeight_mm + gap;
                 }
 
+                // Maybe we dispense with turn/stand here and go to a physical disc/layer where layer is each iteration
+                // of adjacent turns/strands. We then have a physical->logical mapping that takes disc # and layer # and 
+                // spits out the logical turn and strand #s. In effect, this may be no different than physical turn and strand #s
+                // to logical turn and strand #s. Layer # would be turn_in_disc * NumParallelConductors + strand.
                 for (int turn_in_disc = 0; turn_in_disc < TurnsPerDisc; turn_in_disc++)
                 {
                     logicalTurn += 1;
@@ -175,6 +182,7 @@ namespace TfmrLib
                         }
 
                         var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - z_offset);
+
                         var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, logicalTurn, strand);
 
                         phyTurnsCondBdry[cond_idx] = Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
