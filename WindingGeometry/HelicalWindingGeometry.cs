@@ -52,7 +52,18 @@ namespace TfmrLib
 
             int cond_idx = 0;
 
-            double z_mid = DistanceAboveBottomYoke_mm + WindingHeight_mm - ConductorType.TotalHeight_mm / 2; //Turn 0
+            int wdg_direction;
+            double z_mid;
+            if (ParentSegment.StartLocation == StartNodeLocation.Top)
+            {
+                z_mid = DistanceAboveBottomYoke_mm + WindingHeight_mm - ConductorType.TotalHeight_mm / 2; //Turn 0
+                wdg_direction = -1; // Winding goes from top to bottom
+            }
+            else
+            {
+                z_mid = DistanceAboveBottomYoke_mm + ConductorType.TotalHeight_mm / 2; // Turn 0
+                wdg_direction = 1; // Winding goes from bottom to top
+            }
 
             int numSpacers = NumMechTurns - 1; // Spacers between each turn
 
@@ -69,14 +80,14 @@ namespace TfmrLib
                         throw new InvalidOperationException($"Spacer pattern ended prematurely at turn {turn}.");
                     gap = gapEnum.Current;
                 }
-                
+
                 if (ParallelOrientation == Orientation.Radial)
                 {
                     // Calculate the z-coordinate based on the turn accounting for spacer pattern
                     // Sum the heights of all previous turns and spacers
                     if (turn > 0)
                     {
-                        z_mid -= (ConductorType.TotalHeight_mm + gap);
+                        z_mid += wdg_direction * (ConductorType.TotalHeight_mm + gap);
                     }
 
                     for (int strand = 0; strand < NumParallelConductors; strand++)
@@ -123,7 +134,7 @@ namespace TfmrLib
                         // and the number of parallel conductors.
                         if (cond_idx > 0)
                         {
-                            z_mid -= (ConductorType.TotalHeight_mm + gap);
+                            z_mid += wdg_direction * (ConductorType.TotalHeight_mm + gap);
                         }
 
                         // For axial orientation, we need to calculate the radial position based on the turn number

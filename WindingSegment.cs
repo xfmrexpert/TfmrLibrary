@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace TfmrLib
 {
+    public enum StartNodeLocation
+    {
+        Top,
+        Bottom
+    }
+    
     public class WindingSegment
     {
         public int Id { get; set; }
@@ -24,8 +30,10 @@ namespace TfmrLib
             }
         }
 
-        public ConnectionNode StartNode { get; set; }
-        public ConnectionNode EndNode { get; set; }
+        public ConnectionNode StartNode { get; set; } // By convention, the start node is +V
+        public ConnectionNode EndNode { get; set; } // By convention, the end node is -V
+
+        public StartNodeLocation StartLocation { get; set; } = StartNodeLocation.Top;
 
         public WindingSegment()
         {

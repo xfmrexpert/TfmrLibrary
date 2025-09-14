@@ -20,12 +20,12 @@ namespace TfmrLib
 
     public enum Orientation
     {
-        Radial, // Conductors are oriented radially
-        Axial   // Conductors are oriented axially
+        Radial, // Parallel conductors are oriented radially
+        Axial   // Parallel conductors are oriented axially
     }
 
-    public record PhysicalConductorIndex(int Disc, int Layer, int Strand);
-    public record LogicalConductorIndex(int Turn, int Strand);
+    public record PhysicalConductorIndex(int Disc, int Layer); // Disc is vertical position (0 is top), Layer is radial position (0 is innermost)
+    public record LogicalConductorIndex(int Turn, int Strand); // Turn is the turn number (0 is first (top) turn), Strand is the parallel conductor number (0 is first strand)
 
     // Some note on winding conductor indexing.  We have (I think) two general concepts: 1) where is 
     // the conductor in the winding cross-section and 2) where is the conductor within the logical layout of 

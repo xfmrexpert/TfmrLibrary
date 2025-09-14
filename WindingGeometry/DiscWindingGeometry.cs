@@ -135,7 +135,18 @@ namespace TfmrLib
             if (include_ins) phyTurnsIns = new int[conductorins_bdrys.Length];
 
             int cond_idx = 0;
-            double z_mid = DistanceAboveBottomYoke_mm + WindingHeight_mm - ConductorType.TotalHeight_mm / 2;
+            int wdg_direction;
+            double z_mid;
+            if (ParentSegment.StartLocation == StartNodeLocation.Top)
+            {
+                z_mid = DistanceAboveBottomYoke_mm + WindingHeight_mm - ConductorType.TotalHeight_mm / 2; //Turn 0
+                wdg_direction = -1; // Winding goes from top to bottom
+            }
+            else
+            {
+                z_mid = DistanceAboveBottomYoke_mm + ConductorType.TotalHeight_mm / 2; // Turn 0
+                wdg_direction = 1; // Winding goes from bottom to top
+            }
 
             // Logical turn is a shit name.  What we mean here is the turn as it appears in the physical winding numbered from
             // out -> in -> out and from bottom -> top.  
@@ -153,7 +164,7 @@ namespace TfmrLib
                     if (!hasNextGap)
                         throw new InvalidOperationException($"Spacer pattern ended prematurely at disc {disc}.");
                     double gap = gapEnum.Current;
-                    z_mid -= ConductorType.TotalHeight_mm + gap;
+                    z_mid += wdg_direction * (ConductorType.TotalHeight_mm + gap);
                 }
 
                 // Maybe we dispense with turn/stand here and go to a physical disc/layer where layer is each iteration
