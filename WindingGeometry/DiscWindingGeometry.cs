@@ -100,23 +100,47 @@ namespace TfmrLib
             return (r, z);
         }
 
-        protected virtual void BuildTurnMap()
+        protected virtual Dictionary<LogicalConductorIndex, PhysicalConductorIndex> BuildTurnMap()
         {
-            PositionTurnMap = new int[NumTurns * NumParallelConductors];
-            PositionStrandMap = new int[NumTurns * NumParallelConductors];
-            int logicalTurn = 0;
-            for (int disc = 0; disc < NumDiscs; disc++)
+            var LogicalToPhysicalTurnMap = new Dictionary<LogicalConductorIndex, PhysicalConductorIndex>();
+            int num_disc_pairs = NumDiscs / 2;
+            int pair_start_turn = 0;
+            int disc = -1;
+            for (int pair = 0; pair < num_disc_pairs; pair++)
             {
-                for (int turn_in_disc = 0; turn_in_disc < TurnsPerDisc; turn_in_disc++)
+                var interleaving = Interleaving.Count > pair ? Interleaving[pair] : InterleavingType.None;
+                for (int disc_in_pair = 0; disc_in_pair < 2; disc_in_pair++)
                 {
-                    PositionStrandMap[logicalTurn] = 0;
-                    for (int strand = 0; strand < NumParallelConductors; strand++)
+                    disc++;
+                    int turn_in_disc = 0;
+                    int strand = 0;
+                    for (int rad_pos = 0; rad_pos < TurnsPerDisc * NumParallelConductors; rad_pos++)
                     {
-                        logicalTurn += 1;
-                        //PhysToLogicalTurnMap[logicalTurn] = logicalTurn;
+                        // This may confuse things a bit, but we're going to count the rad_pos here in the direction
+                        // the disc is wound.  So for the first disc in the pair, it's wound from outside to inside, and the second disc
+                        // is wound from inside to outside. When we assign the physical index, we'll account for this.
+                        int layer;
+                        if (disc_in_pair == 0) // First disc in pair, by convention wound from outside to inside
+                            layer = TurnsPerDisc * NumParallelConductors - rad_pos;
+                        else // Second disc in pair, by convention wound from inside to outside
+                            layer = rad_pos;
+                        var physIndex = new PhysicalConductorIndex(disc, layer);
+                        
+                        LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc, strand)] = physIndex;
+                        // Increment turn and strand appropriately
+                        if (strand == NumParallelConductors - 1)
+                        {
+                            strand = 0;
+                            turn_in_disc++;
+                        }
+                        else
+                        {
+                            strand++;
+                        }
                     }
                 }
             }
+            return LogicalToPhysicalTurnMap;
         }
 
         public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
@@ -127,6 +151,8 @@ namespace TfmrLib
 
             // Note: The number of total turns in a winding may differ from the number of turns in an axisymmetric section
             // because of partial turns (ie. the disc cross-overs may not be axially aligned). 
+
+            var LogicalToPhysicalTurnMap = BuildTurnMap();
             
             // Setup conductor and insulation boundaries
             var conductorins_bdrys = new GeomLineLoop[NumDiscs * TurnsPerDisc * NumParallelConductors];
@@ -176,6 +202,7 @@ namespace TfmrLib
                     logicalTurn += 1;
                     for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
+                        int layer;
                         double r_mid;
                         if (disc % 2 == 0)
                         {
@@ -183,6 +210,7 @@ namespace TfmrLib
                             // turn_in_disc counts down from TurnsPerDisc - 1 to 0
                             // strand counts up from 0 to NumParallelConductors - 1
                             r_mid = InnerRadius_mm + (TurnsPerDisc - turn_in_disc) * NumParallelConductors * ConductorType.TotalWidth_mm - strand * ConductorType.TotalWidth_mm - ConductorType.TotalWidth_mm / 2;
+                            layer = (TurnsPerDisc - turn_in_disc) * NumParallelConductors - strand;
                         }
                         else
                         {
@@ -190,9 +218,12 @@ namespace TfmrLib
                             // turn_in_disc counts up from 0 to TurnsPerDisc - 1
                             // strand counts up from 0 to NumParallelConductors - 1
                             r_mid = InnerRadius_mm + turn_in_disc * NumParallelConductors * ConductorType.TotalWidth_mm + strand * ConductorType.TotalWidth_mm + ConductorType.TotalWidth_mm / 2;
+                            layer = turn_in_disc * NumParallelConductors + strand;
                         }
 
                         var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - z_offset);
+
+                        LogicalConductorIndex locIdx = LookupLogicalConductorIndex(disc, layer, LogicalToPhysicalTurnMap);
 
                         var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, logicalTurn, strand);
 
@@ -200,7 +231,7 @@ namespace TfmrLib
                         int insTag = Tags.TagEntityByLocation(insulation_bdry, loc, TagType.InsulationBoundary);
 
                         //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
-                        // We probably don't want this if we aren't modelling the insulaion explicitly
+                        // We probably don't want this if we aren't modelling the insulation explicitly
                         if (include_ins)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);

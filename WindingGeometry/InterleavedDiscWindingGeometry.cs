@@ -37,7 +37,7 @@
             }
         }
 
-        protected override void BuildTurnMap()
+        protected override Dictionary<LogicalConductorIndex, PhysicalConductorIndex> BuildTurnMap()
         {
             var LogicalToPhysicalTurnMap = new Dictionary<LogicalConductorIndex, PhysicalConductorIndex>();
             int num_disc_pairs = NumDiscs / 2;
@@ -132,6 +132,7 @@
                     }
                 }
             }
+            return LogicalToPhysicalTurnMap;
             // pair_start_turn = 0;
             // int strand;
             // int physical_turn = -1;
@@ -192,36 +193,36 @@
 
 
 
-                // for (int lTurn = 0; lTurn < 2 * TurnsPerDisc; lTurn++)
-                // {
-                //     for (int strand = 1; strand < NumParallelConductors; strand++)
-                //     {
-                //         switch (interleaving)
-                //         {
-                //             case InterleavingType.None:
-                //                 // No interleaving
-                //                 PhysToLogicalTurnMap[lTurn] = lTurn;
-                //                 break;
-                //             case InterleavingType.Partial:
-                //             case InterleavingType.Full:
-                //                 // Partial or full interleaving
-                //                 if (lTurn < TurnsPerDisc)
-                //                 {
-                //                     // First half of the turns in the pair
-                //                     physical_turn++;
-                //                     PhysToLogicalTurnMap[physical_turn] = disc1 * TurnsPerDisc + lTurn;
-                //                 }
-                //                 else
-                //                 {
-                //                     // Second half of the turns in the pair
-                //                     physical_turn++;
-                //                     PhysToLogicalTurnMap[physical_turn] = disc2 * TurnsPerDisc + (lTurn - TurnsPerDisc);
-                //                 }
-                //                 break;
-                //         }
-                //     }
+            // for (int lTurn = 0; lTurn < 2 * TurnsPerDisc; lTurn++)
+            // {
+            //     for (int strand = 1; strand < NumParallelConductors; strand++)
+            //     {
+            //         switch (interleaving)
+            //         {
+            //             case InterleavingType.None:
+            //                 // No interleaving
+            //                 PhysToLogicalTurnMap[lTurn] = lTurn;
+            //                 break;
+            //             case InterleavingType.Partial:
+            //             case InterleavingType.Full:
+            //                 // Partial or full interleaving
+            //                 if (lTurn < TurnsPerDisc)
+            //                 {
+            //                     // First half of the turns in the pair
+            //                     physical_turn++;
+            //                     PhysToLogicalTurnMap[physical_turn] = disc1 * TurnsPerDisc + lTurn;
+            //                 }
+            //                 else
+            //                 {
+            //                     // Second half of the turns in the pair
+            //                     physical_turn++;
+            //                     PhysToLogicalTurnMap[physical_turn] = disc2 * TurnsPerDisc + (lTurn - TurnsPerDisc);
+            //                 }
+            //                 break;
+            //         }
+            //     }
 
-                // }
+            // }
             //}
         }
 
