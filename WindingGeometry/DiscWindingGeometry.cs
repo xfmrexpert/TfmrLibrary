@@ -10,8 +10,8 @@ namespace TfmrLib
         public int TurnsPerDisc { get; set; }
         public RadialSpacerPattern SpacerPattern { get; set; }
 
-        protected int[] PositionTurnMap;
-        protected int[] PositionStrandMap;
+        protected Dictionary<LogicalConductorIndex, PhysicalConductorIndex> LogicalToPhysicalTurnMap;
+        protected Dictionary<PhysicalConductorIndex, LogicalConductorIndex> PhysicalToLogicalTurnMap => LogicalToPhysicalTurnMap.ToDictionary(kv => kv.Value, kv => kv.Key);
 
         public DiscWindingGeometry()
         {
@@ -100,47 +100,39 @@ namespace TfmrLib
             return (r, z);
         }
 
-        protected virtual Dictionary<LogicalConductorIndex, PhysicalConductorIndex> BuildTurnMap()
+        protected virtual void BuildTurnMap()
         {
-            var LogicalToPhysicalTurnMap = new Dictionary<LogicalConductorIndex, PhysicalConductorIndex>();
-            int num_disc_pairs = NumDiscs / 2;
-            int pair_start_turn = 0;
-            int disc = -1;
-            for (int pair = 0; pair < num_disc_pairs; pair++)
+            LogicalToPhysicalTurnMap = new Dictionary<LogicalConductorIndex, PhysicalConductorIndex>();
+            int turn = 0;
+            for (int disc = 0; disc < NumDiscs; disc++)
             {
-                var interleaving = Interleaving.Count > pair ? Interleaving[pair] : InterleavingType.None;
-                for (int disc_in_pair = 0; disc_in_pair < 2; disc_in_pair++)
+                int disc_in_pair = disc % 2;
+                int strand = 0;
+                for (int rad_pos = 0; rad_pos < TurnsPerDisc * NumParallelConductors; rad_pos++)
                 {
-                    disc++;
-                    int turn_in_disc = 0;
-                    int strand = 0;
-                    for (int rad_pos = 0; rad_pos < TurnsPerDisc * NumParallelConductors; rad_pos++)
+                    // This may confuse things a bit, but we're going to count the rad_pos here in the direction
+                    // the disc is wound.  So for the first disc in the pair, it's wound from outside to inside, and the second disc
+                    // is wound from inside to outside. When we assign the physical index, we'll account for this.
+                    int layer;
+                    if (disc_in_pair == 0) // First disc in pair, by convention wound from outside to inside
+                        layer = TurnsPerDisc * NumParallelConductors - rad_pos;
+                    else // Second disc in pair, by convention wound from inside to outside
+                        layer = rad_pos;
+                    var physIndex = new PhysicalConductorIndex(disc, layer);
+
+                    LogicalToPhysicalTurnMap[new LogicalConductorIndex(turn, strand)] = physIndex;
+                    // Increment turn and strand appropriately
+                    if (strand == NumParallelConductors - 1)
                     {
-                        // This may confuse things a bit, but we're going to count the rad_pos here in the direction
-                        // the disc is wound.  So for the first disc in the pair, it's wound from outside to inside, and the second disc
-                        // is wound from inside to outside. When we assign the physical index, we'll account for this.
-                        int layer;
-                        if (disc_in_pair == 0) // First disc in pair, by convention wound from outside to inside
-                            layer = TurnsPerDisc * NumParallelConductors - rad_pos;
-                        else // Second disc in pair, by convention wound from inside to outside
-                            layer = rad_pos;
-                        var physIndex = new PhysicalConductorIndex(disc, layer);
-                        
-                        LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc, strand)] = physIndex;
-                        // Increment turn and strand appropriately
-                        if (strand == NumParallelConductors - 1)
-                        {
-                            strand = 0;
-                            turn_in_disc++;
-                        }
-                        else
-                        {
-                            strand++;
-                        }
+                        strand = 0;
+                        turn++;
+                    }
+                    else
+                    {
+                        strand++;
                     }
                 }
             }
-            return LogicalToPhysicalTurnMap;
         }
 
         public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
@@ -152,7 +144,7 @@ namespace TfmrLib
             // Note: The number of total turns in a winding may differ from the number of turns in an axisymmetric section
             // because of partial turns (ie. the disc cross-overs may not be axially aligned). 
 
-            var LogicalToPhysicalTurnMap = BuildTurnMap();
+            BuildTurnMap();
             
             // Setup conductor and insulation boundaries
             var conductorins_bdrys = new GeomLineLoop[NumDiscs * TurnsPerDisc * NumParallelConductors];
@@ -223,7 +215,7 @@ namespace TfmrLib
 
                         var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - z_offset);
 
-                        LogicalConductorIndex locIdx = LookupLogicalConductorIndex(disc, layer, LogicalToPhysicalTurnMap);
+                        LogicalConductorIndex locIdx = PhysicalToLogicalTurnMap[new PhysicalConductorIndex(disc, layer)];
 
                         var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, logicalTurn, strand);
 
