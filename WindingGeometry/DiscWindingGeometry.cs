@@ -115,7 +115,7 @@ namespace TfmrLib
                     // is wound from inside to outside. When we assign the physical index, we'll account for this.
                     int layer;
                     if (disc_in_pair == 0) // First disc in pair, by convention wound from outside to inside
-                        layer = TurnsPerDisc * NumParallelConductors - rad_pos;
+                        layer = TurnsPerDisc * NumParallelConductors - 1 - rad_pos;
                     else // Second disc in pair, by convention wound from inside to outside
                         layer = rad_pos;
                     var physIndex = new PhysicalConductorIndex(disc, layer);
@@ -202,7 +202,7 @@ namespace TfmrLib
                             // turn_in_disc counts down from TurnsPerDisc - 1 to 0
                             // strand counts up from 0 to NumParallelConductors - 1
                             r_mid = InnerRadius_mm + (TurnsPerDisc - turn_in_disc) * NumParallelConductors * ConductorType.TotalWidth_mm - strand * ConductorType.TotalWidth_mm - ConductorType.TotalWidth_mm / 2;
-                            layer = (TurnsPerDisc - turn_in_disc) * NumParallelConductors - strand;
+                            layer = (TurnsPerDisc - turn_in_disc) * NumParallelConductors - strand - 1;
                         }
                         else
                         {
