@@ -32,10 +32,10 @@ namespace TfmrLib
                 throw new ArgumentNullException(nameof(geometry));
 
             // FIXME: We need to tag the axis and the outer boundary
-            var LL = geometry.AddPoint(0, 0);
-            var UL = geometry.AddPoint(0, WindowHeight_mm);
-            var UR = geometry.AddPoint(CoreLegRadius_mm + WindowWidth_mm / 2, WindowHeight_mm);
-            var LR = geometry.AddPoint(CoreLegRadius_mm + WindowWidth_mm / 2, 0);
+            var LL = geometry.AddPoint(0, -WindowHeight_mm/2);
+            var UL = geometry.AddPoint(0, WindowHeight_mm/2);
+            var UR = geometry.AddPoint(CoreLegRadius_mm + WindowWidth_mm, WindowHeight_mm/2);
+            var LR = geometry.AddPoint(CoreLegRadius_mm + WindowWidth_mm, -WindowHeight_mm/2);
             var axis = geometry.AddLine(LL, UL);
             Tags.TagEntityByString(axis, "CoreLeg");
             var top_yoke = geometry.AddLine(UL, UR);

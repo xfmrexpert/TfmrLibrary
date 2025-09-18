@@ -139,5 +139,13 @@ namespace TfmrLib
         {
             return entityLocationIndex.TryGetLocationByTag(index, out loc, out type);
         }
+
+        public void ClearTags()
+        {
+            nextTag = 0;
+            tagToEntity.Clear();
+            entityStringIndex.Clear();
+            entityLocationIndex = new EntityIndex();
+        }
     }
 }

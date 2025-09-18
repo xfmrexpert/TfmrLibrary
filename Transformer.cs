@@ -79,7 +79,7 @@ namespace TfmrLib
         public Geometry GenerateGeometry()
         {
             var geometry = new Geometry();
-
+            TagManager.ClearTags();
             // Left boundary (axis if core radius is 0)
             //var pt_origin = geometry.AddPoint(r_core, 0, 0.1);
             //var pt_axis_top = geometry.AddPoint(r_core, bdry_radius, 0.1);
