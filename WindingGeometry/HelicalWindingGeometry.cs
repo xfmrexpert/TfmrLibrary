@@ -39,13 +39,6 @@ namespace TfmrLib
 
             // Setup conductor and insulation boundaries
             var conductorins_bdrys = new GeomLineLoop[NumMechTurns * NumParallelConductors];
-            
-            phyTurnsCond = new int[NumMechTurns * NumParallelConductors];
-            phyTurnsCondBdry = new int[NumMechTurns * NumParallelConductors];
-            if (include_ins)
-            {
-                phyTurnsIns = new int[NumMechTurns * NumParallelConductors];
-            }
 
             GeomLineLoop? conductor_bdry;
             GeomLineLoop? insulation_bdry;
@@ -95,15 +88,10 @@ namespace TfmrLib
                         var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, turn, strand);
                         double r_mid = InnerRadius_mm + strand * ConductorType.TotalWidth_mm + ConductorType.TotalWidth_mm / 2;
                         (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
-                        phyTurnsCondBdry[cond_idx] = Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
+                        Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
                         if (insulation_bdry != null)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
-                        }
-                        else
-                        {
-                            phyTurnsIns[cond_idx] = -1; // No insulation
                         }
 
                         //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
@@ -111,7 +99,7 @@ namespace TfmrLib
                         if (include_ins)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
+                            Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
                             conductorins_bdrys[cond_idx] = insulation_bdry;
                         }
                         else
@@ -120,7 +108,7 @@ namespace TfmrLib
                         }
 
                         var conductor_surface = geometry.AddSurface(conductor_bdry);
-                        phyTurnsCond[cond_idx] = Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
+                        Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
                         cond_idx++;
                     }
                 }
@@ -141,11 +129,11 @@ namespace TfmrLib
                         // and the number of parallel conductors.
                         double r_mid = InnerRadius_mm + ConductorType.TotalWidth_mm / 2;
                         (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - Core.WindowHeight_mm / 2);
-                        phyTurnsCondBdry[cond_idx] = Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorSurface);
+                        Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorSurface);
                         if (insulation_bdry != null)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
+                            Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
                             conductorins_bdrys[cond_idx] = insulation_bdry;
                         }
                         else
@@ -154,7 +142,7 @@ namespace TfmrLib
                         }
 
                         var conductor_surface = geometry.AddSurface(conductor_bdry);
-                        phyTurnsCond[cond_idx] = Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
+                        Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
                         cond_idx++;
 
                     }

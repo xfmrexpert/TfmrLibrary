@@ -11,7 +11,17 @@ namespace TfmrLib
 {
     public class Transformer
     {
-        public Core Core { get; set; } = new Core();
+        private Core _core;
+        public Core Core
+        {
+            get => _core;
+            set
+            {
+                _core = value;
+                if (value != null)
+                    _core.ParentTransformer = this;
+            }
+        }
 
         public TagManager TagManager { get; }   // Scoped to this transformer
 
@@ -30,6 +40,7 @@ namespace TfmrLib
 
         public Transformer(TagManager? tagManager = null)
         {
+            Core = new Core(this);
             TagManager = tagManager ?? new TagManager();
 
             _windings.CollectionChanged += (sender, e) =>
@@ -94,7 +105,7 @@ namespace TfmrLib
             }
 
             var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys.ToArray());
-            phyAir = interior_surface.AddTag();
+            TagManager.TagEntityByString(interior_surface, "InteriorDomain");
 
             //var inf_surface = geometry.AddSurface(outer_bdry_inf);
             //phyInf = inf_surface.AddTag();

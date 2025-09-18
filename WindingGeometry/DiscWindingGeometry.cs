@@ -148,9 +148,6 @@ namespace TfmrLib
             
             // Setup conductor and insulation boundaries
             var conductorins_bdrys = new GeomLineLoop[NumDiscs * TurnsPerDisc * NumParallelConductors];
-            phyTurnsCond = new int[conductorins_bdrys.Length];
-            phyTurnsCondBdry = new int[conductorins_bdrys.Length];
-            if (include_ins) phyTurnsIns = new int[conductorins_bdrys.Length];
 
             int cond_idx = 0;
             int wdg_direction;
@@ -219,15 +216,15 @@ namespace TfmrLib
 
                         var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, logicalTurn, strand);
 
-                        phyTurnsCondBdry[cond_idx] = Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
-                        int insTag = Tags.TagEntityByLocation(insulation_bdry, loc, TagType.InsulationBoundary);
+                        Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
+                        Tags.TagEntityByLocation(insulation_bdry, loc, TagType.InsulationBoundary);
 
                         //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
                         // We probably don't want this if we aren't modelling the insulation explicitly
                         if (include_ins)
                         {
                             var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            phyTurnsIns[cond_idx] = Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
+                            Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
                             conductorins_bdrys[cond_idx] = insulation_bdry;
                         }
                         else
@@ -236,7 +233,7 @@ namespace TfmrLib
                         }
 
                         var conductor_surface = geometry.AddSurface(conductor_bdry);
-                        phyTurnsCond[cond_idx] = Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
+                        Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
                         cond_idx++;
                     }
                 }

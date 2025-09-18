@@ -55,13 +55,6 @@ namespace TfmrLib
 
         public double DistanceAboveBottomYoke_mm { get; set; } = 4.0; // Distance from the bottom yoke to the bottom of the winding
 
-        // These are used to tag geometry entities with contextual information so we can identify them later.
-        // We need to think about how we want to handle aggregate tags for entire windings and the transformer as a whole.
-        // It may also be beneficial to think about doing this more generically.
-        public int[] phyTurnsCondBdry;
-        public int[] phyTurnsCond;
-        public int[] phyTurnsIns;
-
         public abstract double WindingHeight_mm { get; }
 
         public abstract double WindingRadialBuild_mm { get; }
