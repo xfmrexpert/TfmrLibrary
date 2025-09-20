@@ -12,5 +12,10 @@ namespace TfmrLib
         {
             return x_in * 25.4 / 1000;
         }
+
+        public static double in_to_mm(double x_in)
+        {
+            return x_in * 25.4;
+        }
     }
 }

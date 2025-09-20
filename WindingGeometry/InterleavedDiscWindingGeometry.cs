@@ -10,7 +10,7 @@
         }
 
         // Maintained at exactly NumDiscs length, auto-filled with None.
-        public List<InterleavingType> Interleaving { get; } = new();
+        public List<InterleavingType> Interleaving { get; set; } = new();
 
         private int _numDiscs;
         public override int NumDiscs
@@ -47,12 +47,12 @@
             {
                 System.Diagnostics.Debug.WriteLine($"Building turn map for disc pair {pair}");
                 var interleaving = Interleaving.Count > pair ? Interleaving[pair] : InterleavingType.None;
+                int turn_in_disc_pair = 0;
                 for (int disc_in_pair = 0; disc_in_pair < 2; disc_in_pair++)
                 {
                     disc++;
                     System.Diagnostics.Debug.WriteLine($"  Disc {disc} (disc_in_pair={disc_in_pair}), interleaving={interleaving}");
                     bool isInterleavedTurn = false;
-                    int turn_in_disc = 0;
                     int strand = 0;
                     for (int rad_pos = 0; rad_pos < TurnsPerDisc * NumParallelConductors; rad_pos++)
                     {
@@ -68,13 +68,13 @@
 
                         if (interleaving == InterleavingType.None)
                         {
-                            System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
-                            LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc, strand)] = physIndex;
+                            System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
+                            LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair, strand)] = physIndex;
                             // Increment turn and strand appropriately
                             if (strand == NumParallelConductors - 1)
                             {
                                 strand = 0;
-                                turn_in_disc++;
+                                turn_in_disc_pair++;
                             }
                             else
                             {
@@ -85,17 +85,26 @@
                         {
                             if (isInterleavedTurn)
                             {
-                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc + TurnsPerDisc, strand)] = physIndex;
+                                System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair + TurnsPerDisc}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
+                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair + TurnsPerDisc, strand)] = physIndex;
                             }
                             else
                             {
-                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc, strand)] = physIndex;
+                                System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
+                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair, strand)] = physIndex;
                             }
                             if (strand == NumParallelConductors - 1)
                             {
                                 strand = 0;
-                                turn_in_disc++;
-                                isInterleavedTurn = !isInterleavedTurn;
+                                if (isInterleavedTurn)
+                                {
+                                    turn_in_disc_pair++;
+                                    isInterleavedTurn = false;
+                                }
+                                else
+                                {
+                                    isInterleavedTurn = true;
+                                }
                             }
                             else
                             {
@@ -106,18 +115,20 @@
                         {
                             if (isInterleavedTurn)
                             {
-                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc + TurnsPerDisc, strand)] = physIndex;
+                                System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair + TurnsPerDisc}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
+                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair + TurnsPerDisc, strand)] = physIndex;
                             }
                             else
                             {
-                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc, strand)] = physIndex;
+                                System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
+                                LogicalToPhysicalTurnMap[new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair, strand)] = physIndex;
                             }
                             if (isInterleavedTurn)
                             {
                                 if (strand == NumParallelConductors - 1)
                                 {
                                     strand = 0;
-                                    turn_in_disc++;
+                                    turn_in_disc_pair++;
                                     isInterleavedTurn = false;
                                 }
                                 else
@@ -133,7 +144,16 @@
                         }
 
                     }
-                    pair_start_turn += TurnsPerDisc;
+                }
+                pair_start_turn += 2 * TurnsPerDisc;
+            }
+            // Print out the mapping for verification
+            for (int t = 0; t < NumTurns; t++)
+            {
+                for (int s = 0; s < NumParallelConductors; s++)
+                {
+                    var phys = LogicalToPhysicalTurnMap[new LogicalConductorIndex(t, s)];
+                    System.Diagnostics.Debug.WriteLine($"Logical turn {t}, strand {s} -> Physical disc {phys.Disc}, layer {phys.Layer}");
                 }
             }
         }

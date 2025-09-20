@@ -133,6 +133,16 @@ namespace TfmrLib
                     }
                 }
             }
+
+            // Print out the mapping for verification
+            for (int t = 0; t < NumTurns; t++)
+            {
+                for (int s = 0; s < NumParallelConductors; s++)
+                {
+                    var phys = LogicalToPhysicalTurnMap[new LogicalConductorIndex(t, s)];
+                    System.Diagnostics.Debug.WriteLine($"Logical turn {t}, strand {s} -> Physical disc {phys.Disc}, layer {phys.Layer}");
+                }
+            }
         }
 
         public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
@@ -214,7 +224,7 @@ namespace TfmrLib
 
                         LogicalConductorIndex locIdx = PhysicalToLogicalTurnMap[new PhysicalConductorIndex(disc, layer)];
 
-                        var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, logicalTurn, strand);
+                        var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, locIdx.Turn, locIdx.Strand);
 
                         Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
                         Tags.TagEntityByLocation(insulation_bdry, loc, TagType.InsulationBoundary);
