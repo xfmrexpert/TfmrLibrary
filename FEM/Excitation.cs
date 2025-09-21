@@ -8,6 +8,7 @@ namespace TfmrLib.FEM
 {
     public class Excitation
     {
+        public Region Region { get; set; }
         public double Value { get; set; }
     }
 }

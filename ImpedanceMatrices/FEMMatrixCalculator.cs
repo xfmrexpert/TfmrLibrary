@@ -16,17 +16,22 @@ namespace TfmrLib
 {
     public class FEMMatrixCalculator : IRLCMatrixCalculator
     {
-        private const string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
+        private Mesh mesh;
+
+        private void GenerateMesh(Transformer tfmr)
+        {
+            var geometry = tfmr.GenerateGeometry();
+            GmshFile gmshFile = new GmshFile("case.geo");
+            gmshFile.CreateFromGeometry(geometry);
+            double meshscale = 1.0;
+            mesh = gmshFile.GenerateMesh(meshscale, 2);
+        }
 
         public Matrix<double> Calc_Lmatrix(Transformer tfmr, double freq)
         {
             int order = 2; // Order of the finite element method
 
-            var geometry = tfmr.GenerateGeometry();
-            GmshFile gmshFile = new GmshFile("case.geo");
-            gmshFile.CreateFromGeometry(geometry);
-            double meshscale = 1.0;
-            var mesh = gmshFile.GenerateMesh(meshscale, 2);
+            GenerateMesh(tfmr);
 
             int total_turns = 0;
             foreach (Winding wdg in tfmr.Windings)
@@ -80,7 +85,81 @@ namespace TfmrLib
             return L_getdp;
         }
 
-        private Vector_d CalcInductance(Transformer tfmr, int posTurn, double freq, int order = 1)
+        private Vector_d CalcInductance(Transformer tfmr, int excitedTurn, int excitedStrand, double freq, int order = 1)
+        {
+            Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {excitedTurn}");
+
+            var fem = new GetDPAxiMagProblem();
+
+            var oil = new Material("Oil")
+            {
+                Properties = new Dictionary<string, double> {
+                { "mu_r", 1.0 },
+                { "epsr", tfmr.eps_oil },
+                { "loss_tan", tfmr.ins_loss_factor } }
+            };
+
+            var paper = new Material("Paper")
+            {
+                Properties = new Dictionary<string, double> {
+                { "mu_r", 1.0 },
+                { "epsr", tfmr.Windings[0].eps_paper },
+                { "loss_tan", tfmr.ins_loss_factor } }
+            };
+
+            var copper = new Material("Copper")
+            {
+                Properties = new Dictionary<string, double> {
+                { "mu_r", 1.0 },
+                { "sigma", 5.96e7 } }
+            };
+
+            fem.Materials.Add(oil);
+            fem.Materials.Add(paper);
+            fem.Materials.Add(copper);
+            fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
+            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg"), tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            int globalTurn = -1;
+            for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
+            {
+                var wdg = tfmr.Windings[wdgNum];
+                for (int segNum = 0; segNum < wdg.Segments.Count; segNum++)
+                {
+                    var seg = wdg.Segments[segNum];
+                    if (seg.Geometry != null)
+                    {
+                        var seg_geom = seg.Geometry;
+                        for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++, globalTurn++)
+                        {
+                            for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+                            {
+                                var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
+                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) }, Material = paper };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) }, Material = copper };
+                                fem.Regions.Add(regionIns);
+                                fem.Regions.Add(regionCond);
+                                if (globalTurn == excitedTurn && localStrand == excitedStrand)
+                                {
+                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
+                                }
+                                else
+                                {
+                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            fem.Solve();
+
+            // Use the older method with getdp executable directly for now
+            //return CalcInductanceOld(tfmr, excitedTurn, freq, order);
+            return null;
+        }
+
+        private Vector_d CalcInductanceOld(Transformer tfmr, int posTurn, double freq, int order = 1)
         {
             Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {posTurn}");
 

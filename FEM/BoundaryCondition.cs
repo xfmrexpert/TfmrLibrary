@@ -11,4 +11,14 @@ namespace TfmrLib.FEM
         public string Name { get; set; }
         public List<int> Tags { get; set; }
     }
+
+    public class NeumannBoundaryCondition : BoundaryCondition
+    {
+        public double Flux { get; set; }
+    }
+
+    public class DirichletBoundaryCondition : BoundaryCondition
+    {
+        public double Potential { get; set; }
+    }
 }

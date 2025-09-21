@@ -124,6 +124,26 @@ namespace TfmrLib
             return false;
         }
 
+        public int GetTagByLocation(LocationKey loc, TagType type)
+        {
+            if (entityLocationIndex.TryGet(loc, type, out var tag) && tag.HasValue)
+            {
+                return tag.Value;
+            }
+            throw new KeyNotFoundException($"No tag found for location {loc} and type {type}");
+        }
+
+        public bool TryGetTagByLocation(LocationKey loc, TagType type, out int tag)
+        {
+            tag = -1;
+            if (entityLocationIndex.TryGet(loc, type, out var t) && t.HasValue)
+            {
+                tag = t.Value;
+                return true;
+            }
+            return false;
+        }
+
         public bool TryGetEntityByString(string key, out GeomEntity? entity)
         {
             entity = null;
@@ -133,6 +153,26 @@ namespace TfmrLib
                 return true;
             }
             return false;
+        }
+
+        public bool TryGetTagByString(string key, out int tag)
+        {
+            tag = -1;
+            if (entityStringIndex.TryGetValue(key, out var t))
+            {
+                tag = t;
+                return true;
+            }
+            return false;
+        }
+
+        public int GetTagByString(string key)
+        {
+            if (entityStringIndex.TryGetValue(key, out var tag))
+            {
+                return tag;
+            }
+            throw new KeyNotFoundException($"No tag found for key {key}");
         }
 
         public bool TryGetLocationByTag(int index, out LocationKey loc, out TagType type)
