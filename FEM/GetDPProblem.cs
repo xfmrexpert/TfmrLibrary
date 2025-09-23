@@ -99,7 +99,7 @@ namespace TfmrLib.FEM
 
                 p.StartInfo.FileName = mygetdp;
                 // Deleted -pos dyn from below unless/until we need postprocessing in getdp
-                p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath {model_prefix} -solve Magnetodynamics2D_av -v 5";
+                p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath {model_prefix} -solve Magnetodynamics2D_av -pos dyn -v 5";
                 p.StartInfo.CreateNoWindow = true;
 
                 // redirect the output
@@ -215,6 +215,7 @@ namespace TfmrLib.FEM
             f.WriteLine("Group{");
             f.WriteLine("  // all volumes + surfaces on which integrals will be computed");
             f.WriteLine("  Dom_Mag = Region[ {Vol_Mag} ];");
+            f.WriteLine("  DomainDummy = Region[ 12345 ] ; // Dummy region number for postpro with functions");
             f.WriteLine("}");
 
             f.WriteLine("Jacobian {");
@@ -340,6 +341,43 @@ namespace TfmrLib.FEM
             f.WriteLine("      SetFrequency[A, Freq];");
             f.WriteLine("      Solve[A];");
             f.WriteLine("      SaveSolution[A];");
+            f.WriteLine("    }");
+            f.WriteLine("  }");
+            f.WriteLine("}");
+
+            // Same PostProcessing for both static and dynamic formulations (both refer to
+            // the same FunctionSpace from which the solution is obtained)
+            f.WriteLine("PostProcessing {");
+            f.WriteLine("  { Name Magnetodynamics2D_av; NameOfFormulation Magnetodynamics2D_av;");
+            f.WriteLine("    PostQuantity {");
+            f.WriteLine("      // In 2D, a is a vector with only a z-component: (0,0,az)");
+            f.WriteLine("      { Name a; Value {");
+            f.WriteLine("          Term { [ {a} ]; In Vol_Mag; Jacobian Vol; }");
+            f.WriteLine("        }");
+            f.WriteLine("      }");
+            f.WriteLine("      // The equilines of az are field lines (giving the magnetic field direction)");
+            f.WriteLine("      { Name az; Value {");
+            f.WriteLine("          Term { [ CompZ[{a}] ]; In Vol_Mag; Jacobian Vol; }");
+            f.WriteLine("        }");
+            f.WriteLine("      }");
+            f.WriteLine("      { Name Inductance_from_Flux; Value { Term { Type Global; [ $Flux ]; In DomainDummy; } } }");
+            f.WriteLine("      { Name L; ");
+            f.WriteLine("        Value { ");
+            f.WriteLine("          Term { [ -Im [ {U}/(2*Pi*Freq)/(2*Pi)]]; In Vol_C_Mag; }");
+            f.WriteLine("        }");
+            f.WriteLine("      }");
+            f.WriteLine("    }");
+            f.WriteLine("  }");
+            f.WriteLine("}");
+
+            f.WriteLine("PostOperation {");
+            f.WriteLine("  { Name dyn; NameOfPostProcessing Magnetodynamics2D_av;");
+            f.WriteLine("    Operation {");
+            f.WriteLine("      Print[ L, OnRegion Vol_C_Mag, File \"out.txt\",");
+            f.WriteLine("      Format Table, SendToServer \"Output/Global/Inductance [H]\" ];");
+            f.WriteLine("      Print[ Inductance_from_Flux [Vol_C_Mag], OnRegion Vol_C_Mag, File \"out2.txt\",");
+            f.WriteLine("      Format Table, SendToServer \"Output/Global/Inductance2 [H]\" ];");
+            //f.WriteLine("      Print[ JouleLosses, OnRegion Vol_C_Mag, File \"out3.txt\", Format Table];");
             f.WriteLine("    }");
             f.WriteLine("  }");
             f.WriteLine("}");

@@ -15,7 +15,6 @@
   <ItemGroup>
     <Compile Remove="ImpedanceMatrices/AnalyticMatrixCalculator.cs" />
     <Compile Remove="ImpedanceMatrices/ExtMatrixCalculator.cs" />
-    <Compile Remove="ImpedanceMatrices/FEMMatrixCalculator.cs" />
     <Compile Remove="FreqResponseModel.cs" />
     <Compile Remove="LumpedModel.cs" />
     <Compile Remove="MTLModel.cs" />
