@@ -9,12 +9,35 @@ namespace TfmrLib.FEM
 {
     public class GetDPProblem : FEMProblem
     {
-        public string model_prefix = "bin/Debug/net9.0/";
-        public string onelab_dir = @"bin/";
+        public string model_prefix = ""; //"bin/Debug/net9.0/";
+        public string onelab_dir = @"../../../bin/";
         public int order = 1;
+
+        public bool ShowInTerminal { get; set; } = true;   // NEW
+
+        private static string? FindTerminal()
+        {
+            string[] candidates = { "gnome-terminal", "xterm", "konsole" };
+            foreach (var c in candidates)
+            {
+                // Absolute path
+                var abs = "/usr/bin/" + c;
+                if (File.Exists(abs)) return abs;
+                // PATH search
+                var path = Environment.GetEnvironmentVariable("PATH");
+                if (path == null) continue;
+                foreach (var dir in path.Split(':'))
+                {
+                    var full = Path.Combine(dir, c);
+                    if (File.Exists(full)) return full;
+                }
+            }
+            return null;
+        }
 
         protected virtual void WriteGetDPFile(string filename)
         {
+            Console.WriteLine($"Current directory: {Directory.GetCurrentDirectory()}");
             Directory.CreateDirectory(Directory.GetCurrentDirectory() + model_prefix);
 
             var f = File.CreateText(model_prefix + "case.pro");
@@ -83,81 +106,114 @@ namespace TfmrLib.FEM
         public override void Solve()
         {
             string mygetdp = onelab_dir + "getdp";
+            if (!File.Exists(mygetdp))
+                throw new FileNotFoundException("Cannot find getdp executable at " + mygetdp);
 
             string model = model_prefix + "case";
             string model_msh = model + ".msh";
             string model_pro = model + ".pro";
             WriteGetDPFile(model_pro);
 
-            int return_code = -999;
-            object returnCodeLock = new object();
+            string args = $"{model_pro} -msh {model_msh} -solve Magnetodynamics2D_av -pos dyn -v 5";
+            ShowInTerminal = true;
+            if (ShowInTerminal)
+            {
+                var term = FindTerminal() ?? throw new Exception("No terminal emulator found (gnome-terminal/xterm/konsole).");
+                var exitFile = Path.GetTempFileName();
+                try
+                {
+                    using var p = new Process();
+                    if (term.Contains("gnome-terminal"))
+                    {
+                        // Keep window open: capture exit code, then wait for Enter.
+                        // --wait lets our process block until the bash command (including read) finishes.
+                        p.StartInfo.FileName = term;
+                        p.StartInfo.Arguments =
+                            $"--wait -- bash -lc \"'{mygetdp}' {args}; code=$?; echo $code > '{exitFile}'; " +
+                            "echo; echo 'getdp exited with code '$code'. Press Enter to close...'; read\"";
+                    }
+                    else if (term.Contains("xterm"))
+                    {
+                        p.StartInfo.FileName = term;
+                        p.StartInfo.Arguments =
+                            $"-e bash -lc \"'{mygetdp}' {args}; code=$?; echo $code > '{exitFile}'; " +
+                            "echo; echo 'getdp exited with code '$code'. Press Enter to close...'; read\"";
+                    }
+                    else // konsole
+                    {
+                        // --noclose keeps window by default, but we still add a read for consistency
+                        p.StartInfo.FileName = term;
+                        p.StartInfo.Arguments =
+                            $"--noclose -e bash -lc \"'{mygetdp}' {args}; code=$?; echo $code > '{exitFile}'; " +
+                            "echo; echo 'getdp exited with code '$code'. Press Enter to close...'; read\"";
+                    }
+                    p.StartInfo.UseShellExecute = false;
+                    Console.WriteLine("Launching getdp in terminal:");
+                    Console.WriteLine($"{mygetdp} {args}");
+                    p.Start();
+                    p.WaitForExit();
 
+                    int exitCode = 0;
+                    if (File.Exists(exitFile))
+                    {
+                        var txt = File.ReadAllText(exitFile).Trim();
+                        if (!int.TryParse(txt, out exitCode))
+                            Console.WriteLine("Warning: could not parse exit code text: " + txt);
+                    }
+                    if (exitCode != 0)
+                        throw new Exception($"getdp exited with code {exitCode}");
+                }
+                finally
+                {
+                    try { if (File.Exists(exitFile)) File.Delete(exitFile); } catch { }
+                }
+                return;
+            }
+
+            // Non-terminal (background) mode with simple timeout + live output to console
+            int return_code = -999;
+            object returnCodeLock = new();
             while (return_code < 0)
             {
                 var sb = new StringBuilder();
-                Process p = new Process();
-
+                using var p = new Process();
                 p.StartInfo.FileName = mygetdp;
-                // Deleted -pos dyn from below unless/until we need postprocessing in getdp
-                p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath {model_prefix} -solve Magnetodynamics2D_av -pos dyn -v 5";
+                p.StartInfo.Arguments = args;
                 p.StartInfo.CreateNoWindow = true;
-
-                // redirect the output
+                p.StartInfo.UseShellExecute = false;
                 p.StartInfo.RedirectStandardOutput = true;
                 p.StartInfo.RedirectStandardError = true;
 
-                // hookup the eventhandlers to capture the data that is received
-                p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
-                p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
+                p.OutputDataReceived += (s, a) => { if (a.Data != null) { Console.WriteLine(a.Data); sb.AppendLine(a.Data); } };
+                p.ErrorDataReceived += (s, a) => { if (a.Data != null) { Console.WriteLine(a.Data); sb.AppendLine(a.Data); } };
 
-                // direct start
-                p.StartInfo.UseShellExecute = false;
-
-                // Start process watchdog timer
-                var timer = new System.Timers.Timer(60000); // 60 seconds
-                timer.Elapsed += (sender, e) =>
+                var timer = new System.Timers.Timer(60000);
+                timer.Elapsed += (s, e) =>
                 {
                     if (!p.HasExited)
                     {
-                        p.Kill();
-                        Console.WriteLine("Process killed due to timeout.");
+                        try { p.Kill(true); } catch { }
+                        Console.WriteLine("getdp killed (timeout).");
+                        lock (returnCodeLock) return_code = -1;
                         timer.Stop();
-                        lock (returnCodeLock)
-                        {
-                            return_code = -1; // Set return code to indicate timeout
-                        }
-                        // Try again
                     }
                 };
 
+                Console.WriteLine("Running (background): " + mygetdp + " " + args);
                 p.Start();
-
                 timer.Start();
-
-                // start our event pumps
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
-
-                // until we are done
                 p.WaitForExit();
+                timer.Stop();
+                timer.Dispose();
 
-                string output = sb.ToString();
                 return_code = p.ExitCode;
                 if (return_code > 0)
-                {
-                    Console.Write(output);
-                }
-                timer.Stop(); // Stop the timer if process exits normally
-                timer.Dispose();
-                p.Close();
-
+                    Console.WriteLine(sb.ToString());
+                if (return_code != 0 && return_code != -1)
+                    throw new Exception($"Failed to run getdp (exit {return_code})");
             }
-
-            if (return_code != 0)
-            {
-                throw new Exception($"Failed to run getdp, return code {return_code}");
-            }
-
         }
     }
 

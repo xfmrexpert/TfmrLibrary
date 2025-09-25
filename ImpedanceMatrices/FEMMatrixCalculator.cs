@@ -42,8 +42,8 @@ namespace TfmrLib
 
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(total_conductors, total_conductors);
 
-            int globalTurn = 0;
-            int globalConductor = 0;
+            int globalTurn = -1;
+            int globalConductor = -1;
             foreach (var wdg in tfmr.Windings)
             {
                 foreach (var seg in wdg.Segments)
@@ -58,6 +58,7 @@ namespace TfmrLib
                             {
                                 globalConductor++;
                                 var row = CalcInductance(tfmr, globalTurn, localStrand, freq, order);
+                                Console.WriteLine($"L matrix row for turn {globalTurn} strand {localStrand} at {freq.ToString("0.##E0")}Hz calculated.  Adding to row {globalConductor} of L matrix.");
 
                                 // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
                                 lock (L_getdp)
@@ -131,7 +132,7 @@ namespace TfmrLib
             fem.Materials.Add(copper);
             fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
             fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg"), tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
-            int globalTurn = -1;
+            int globalTurn = 0;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {
                 var wdg = tfmr.Windings[wdgNum];
@@ -165,6 +166,15 @@ namespace TfmrLib
             }
 
             fem.Solve();
+
+            var resultFile = File.OpenText("out.txt");
+            string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
+            var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), double.Parse);
+
+            var L = Vector_d.Build.Dense(L_array);
+            resultFile.Close();
+
+            return L;
 
             // Use the older method with getdp executable directly for now
             //return CalcInductanceOld(tfmr, excitedTurn, freq, order);
