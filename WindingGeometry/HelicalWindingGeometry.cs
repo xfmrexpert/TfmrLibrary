@@ -225,7 +225,7 @@ namespace TfmrLib
             throw new NotImplementedException();
         }
 
-        public override Vector<double> GetTurnLengths()
+        public override Vector<double> GetTurnLengths_m()
         {
             int num_cond = NumParallelConductors * NumTurns;
             var L_vector = Vector<double>.Build.Dense(num_cond);

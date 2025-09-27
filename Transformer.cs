@@ -62,7 +62,7 @@ namespace TfmrLib
             };
         }
 
-        public Vector<double> Calc_TurnLengthVector()
+        public Vector<double> GetTurnLengths_m()
         {
             int total_cond = Windings.Sum(wdg => wdg.NumConductors);
             var length_vector = Vector<double>.Build.Dense(total_cond);
@@ -71,7 +71,7 @@ namespace TfmrLib
             {
                 foreach (var segment in wdg.Segments)
                 {
-                    var seg_length_vector = segment.Geometry.GetTurnLengths();
+                    var seg_length_vector = segment.Geometry.GetTurnLengths_m();
                     for (int i = 0; i < seg_length_vector.Count; i++)
                     {
                         length_vector[idx] = seg_length_vector[i];

@@ -235,13 +235,13 @@ namespace TfmrLib
             return R_f;
         }
 
-        public override Vector_d GetTurnLengths()
+        public override Vector_d GetTurnLengths_m()
         {
             int num_cond = NumParallelConductors * NumTurns;
             var L_vector = Vector_d.Build.Dense(num_cond);
             for (int t = 0; t < num_cond; t++)
             {
-                L_vector[t] = 2.0 * Math.PI * InnerRadius_mm / 1000.0; // in meters
+                L_vector[t] = _conductorLocations[t].TurnLength_mm / 1000.0; // in meters
             }
             return L_vector;
         }

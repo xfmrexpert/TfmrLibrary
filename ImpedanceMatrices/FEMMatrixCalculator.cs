@@ -71,6 +71,8 @@ namespace TfmrLib
                 }
             }
 
+            L_getdp = L_getdp.Multiply(2 * Math.PI); // Need to multiply by 2pi to go from Henries per radian to Henries for a complete turn
+
             Console.Write($"L total at {freq.ToString("0.##E0")}Hz: {(L_getdp * 2 * Math.PI).RowSums().Sum() / 1000.0}mH\n");
 
             // globalConductor = 0;

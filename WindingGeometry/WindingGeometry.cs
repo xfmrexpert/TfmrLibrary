@@ -97,7 +97,7 @@ namespace TfmrLib
 
         public abstract Matrix<double> Calc_Rmatrix(double f = 60);
 
-        public abstract Vector<double> GetTurnLengths();
+        public abstract Vector<double> GetTurnLengths_m();
 
     }
     

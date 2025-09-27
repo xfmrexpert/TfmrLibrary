@@ -18,7 +18,7 @@ namespace TfmrLib
         public abstract double ConductingArea_sqmm { get; }
         public double rho_c { get; set; }
 
-        public abstract (GeomLineLoop, GeomLineLoop) CreateGeometry(ref Geometry geo, double r_mid, double z_mid);
+        public abstract (GeomLineLoop, GeomLineLoop) CreateGeometry(ref Geometry geo, double r_mid_mm, double z_mid_mm);
 
         public double DCResistance { get => ConductingArea_sqmm * rho_c; }
     }
@@ -42,8 +42,8 @@ namespace TfmrLib
 
         public override (GeomLineLoop, GeomLineLoop) CreateGeometry(ref Geometry geo, double r_mid, double z_mid)
         {
-            var conductor_bdry = geo.AddRoundedRectangle(r_mid, z_mid, BareHeight_mm, BareWidth_mm, CornerRadius_mm, 0.0004);
-            var insulation_bdry = geo.AddRoundedRectangle(r_mid, z_mid, BareHeight_mm + 2 * InsulationThickness_mm, BareWidth_mm + 2 * InsulationThickness_mm, CornerRadius_mm + InsulationThickness_mm, 0.0004);
+            var conductor_bdry = geo.AddRoundedRectangle(r_mid / 1000, z_mid / 1000, BareHeight_mm / 1000, BareWidth_mm / 1000, CornerRadius_mm / 1000, 0.0004);
+            var insulation_bdry = geo.AddRoundedRectangle(r_mid / 1000, z_mid / 1000, (BareHeight_mm + 2 * InsulationThickness_mm) / 1000, (BareWidth_mm + 2 * InsulationThickness_mm) / 1000, (CornerRadius_mm + InsulationThickness_mm) / 1000, 0.0004);
             return (conductor_bdry, insulation_bdry);
         }
     }
@@ -101,8 +101,8 @@ namespace TfmrLib
 
         public override (GeomLineLoop, GeomLineLoop) CreateGeometry(ref Geometry geo, double r_mid, double z_mid)
         {
-            var conductor_bdry = geo.AddRoundedRectangle(r_mid, z_mid, BareHeight_mm, BareWidth_mm, StrandCornerRadius_mm, 0.0004);
-            var insulation_bdry = geo.AddRoundedRectangle(r_mid, z_mid, BareHeight_mm + 2 * InsulationThickness_mm, BareWidth_mm + 2 * InsulationThickness_mm, StrandCornerRadius_mm + InsulationThickness_mm, 0.0004);
+            var conductor_bdry = geo.AddRoundedRectangle(r_mid / 1000, z_mid / 1000, BareHeight_mm / 1000, BareWidth_mm / 1000, StrandCornerRadius_mm / 1000, 0.0004);
+            var insulation_bdry = geo.AddRoundedRectangle(r_mid / 1000, z_mid / 1000, (BareHeight_mm + 2 * InsulationThickness_mm) / 1000, (BareWidth_mm + 2 * InsulationThickness_mm) / 1000, (StrandCornerRadius_mm + InsulationThickness_mm) / 1000, 0.0004);
             return (conductor_bdry, insulation_bdry);
         }
     }
