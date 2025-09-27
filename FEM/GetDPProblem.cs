@@ -9,27 +9,55 @@ namespace TfmrLib.FEM
 {
     public class GetDPProblem : FEMProblem
     {
-        public string model_prefix = ""; //"bin/Debug/net9.0/";
-        public string onelab_dir = @"../../../bin/";
+        public string model_prefix = "";
+        public string? GetDPPath { get; set; }  // configurable
         public int order = 1;
+        public bool ShowInTerminal { get; set; } = true;
 
-        public bool ShowInTerminal { get; set; } = true;   // NEW
-
-        private static string? FindTerminal()
+        private string FindGetDPExecutable()
         {
-            string[] candidates = { "gnome-terminal", "xterm", "konsole" };
-            foreach (var c in candidates)
+            if (!string.IsNullOrEmpty(GetDPPath) && File.Exists(GetDPPath))
+                return GetDPPath;
+
+            var envPath = Environment.GetEnvironmentVariable("GETDP_PATH");
+            if (!string.IsNullOrEmpty(envPath) && File.Exists(envPath))
+                return envPath;
+
+            string[] relativePaths = { "./bin/getdp", "../bin/getdp", "../../../bin/getdp" };
+            foreach (var rel in relativePaths)
+                if (File.Exists(rel)) return Path.GetFullPath(rel);
+
+            // PATH search
+            var pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (pathEnv != null)
             {
-                // Absolute path
-                var abs = "/usr/bin/" + c;
-                if (File.Exists(abs)) return abs;
-                // PATH search
-                var path = Environment.GetEnvironmentVariable("PATH");
-                if (path == null) continue;
-                foreach (var dir in path.Split(':'))
+                foreach (var dir in pathEnv.Split(Path.PathSeparator))
                 {
-                    var full = Path.Combine(dir, c);
-                    if (File.Exists(full)) return full;
+                    var candidate = Path.Combine(dir, "getdp");
+                    if (File.Exists(candidate)) return candidate;
+                }
+            }
+
+            string[] systemPaths = { "/usr/bin/getdp", "/usr/local/bin/getdp" };
+            foreach (var sys in systemPaths)
+                if (File.Exists(sys)) return sys;
+
+            throw new FileNotFoundException("getdp executable not found. Set GetDPPath property or GETDP_PATH environment variable.");
+        }
+
+        private string? FindTerminal()
+        {
+            string[] terminals = { "cosmic-term", "gnome-terminal", "xterm", "konsole" };
+            var pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (pathEnv != null)
+            {
+                foreach (var dir in pathEnv.Split(Path.PathSeparator))
+                {
+                    foreach (var term in terminals)
+                    {
+                        var candidate = Path.Combine(dir, term);
+                        if (File.Exists(candidate)) return candidate;
+                    }
                 }
             }
             return null;
@@ -105,9 +133,8 @@ namespace TfmrLib.FEM
 
         public override void Solve()
         {
-            string mygetdp = onelab_dir + "getdp";
-            if (!File.Exists(mygetdp))
-                throw new FileNotFoundException("Cannot find getdp executable at " + mygetdp);
+            string mygetdp = FindGetDPExecutable();
+            Console.WriteLine($"Using getdp at: {mygetdp}");
 
             string model = model_prefix + "case";
             string model_msh = model + ".msh";

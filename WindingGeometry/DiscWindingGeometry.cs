@@ -1,18 +1,18 @@
 ﻿using GeometryLib;
 using MathNet.Numerics.LinearAlgebra;
 using System.Numerics;
+using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
 namespace TfmrLib
 {
     public class DiscWindingGeometry : WindingGeometry
     {
+        // Public properties
         public virtual int NumDiscs { get; set; }
         public int TurnsPerDisc { get; set; }
         public RadialSpacerPattern SpacerPattern { get; set; }
 
-        protected Dictionary<LogicalConductorIndex, PhysicalConductorIndex> LogicalToPhysicalTurnMap;
-        protected Dictionary<PhysicalConductorIndex, LogicalConductorIndex> PhysicalToLogicalTurnMap => LogicalToPhysicalTurnMap.ToDictionary(kv => kv.Value, kv => kv.Key);
-
+        // Constructors
         public DiscWindingGeometry()
         {
             Type = WindingType.Disc;
@@ -25,6 +25,7 @@ namespace TfmrLib
             SpacerPattern = new RadialSpacerPattern();
         }
 
+        // Computed properties
         public override double WindingHeight_mm
         {
             get
@@ -43,134 +44,78 @@ namespace TfmrLib
             }
         }
 
-        // TODO: THIS IS WRONG
-        public override (double r, double z) GetConductorMidpoint(int turn_idx, int strand_idx)
+        // Helper methods to compute physical position on-demand
+        public (int Disc, int Layer) GetPhysicalPosition(int conductorIndex)
         {
-            // n is the local turn number, starting from the top of the winding
-            if (turn_idx < 0 || turn_idx >= NumTurns)
-            {
-                throw new ArgumentOutOfRangeException(nameof(turn_idx), "Turn number must be within the range of total turns.");
-            }
-
-            double r, z;
-
-            int disc = (int)Math.Floor((double)turn_idx / TurnsPerDisc);
-            int turn_in_disc = turn_idx % TurnsPerDisc;
-            //Console.WriteLine($"turn: {n} disc: {disc} turn in disc: {turn}");
-
-            // Calculate the radial position (r) of the midpoint of the nth turn
-            // We assume discs always start from the outside.  Therefore, even numbered discs
-            // are wound out to in and odd numbered discs from in to out.
+            // Given the winding pattern, compute disc and layer directly
+            int turnsPerLayer = TurnsPerDisc * NumParallelConductors;
+            int disc = conductorIndex / turnsPerLayer;
+            int positionInDisc = conductorIndex % turnsPerLayer;
+            
+            int layer;
             if (disc % 2 == 0)
             {
-                //out to in
-                r = InnerRadius_mm + (TurnsPerDisc - turn_in_disc) * NumParallelConductors * ConductorType.TotalWidth_mm - strand_idx * ConductorType.TotalWidth_mm - ConductorType.TotalWidth_mm/2;
+                // Even disc: wound outside→inside, reverse the layer order
+                layer = turnsPerLayer - 1 - positionInDisc;
             }
             else
             {
-                //in to out
-                r = InnerRadius_mm + turn_in_disc * NumParallelConductors * ConductorType.TotalWidth_mm + strand_idx * ConductorType.TotalWidth_mm + ConductorType.TotalWidth_mm / 2;
+                // Odd disc: wound inside→outside
+                layer = positionInDisc;
             }
-
-            // Calculate the z-coordinate based on the disc and turn accounting for spacer pattern
-            // Sum the heights of all previous discs and spacers
-            z = 0.0;
-
-            int patternElement = 0;
-            int discInPattern = 0;
-            // Loop through discs up to the disc this conductor is in
-            for (int i = 0; i < disc; i++)
-            {
-                SpacerPatternElement element = SpacerPattern.Elements[patternElement];
-                if (discInPattern >= element.Count)
-                {
-                    patternElement++;
-                    discInPattern = 0;
-                    if (patternElement >= SpacerPattern.Elements.Count)
-                    {
-                        throw new InvalidOperationException("Not enough spacer elements defined for the number of discs.");
-                    }
-                    element = SpacerPattern.Elements[patternElement];
-                }
-                z += ConductorType.TotalHeight_mm + element.SpacerHeight_mm * SpacerPattern.AxialCompressionFactor;
-            }
-            z -= ConductorType.TotalHeight_mm / 2;
             
-            //Console.WriteLine($"turn: {n} disc: {disc} turn in disc: {turn} r: {r} z:{z}");
-            return (r, z);
+            return (disc, layer);
         }
 
-        protected virtual void BuildTurnMap()
+        public LogicalConductorIndex GetLogicalIndex(int conductorIndex)
         {
-            LogicalToPhysicalTurnMap = new Dictionary<LogicalConductorIndex, PhysicalConductorIndex>();
-            int turn = 0;
+            if (ConductorIndexToLogical == null)
+                BuildConductorMapping();
+            
+            return ConductorIndexToLogical![conductorIndex];
+        }
+
+        protected virtual void BuildConductorMapping()
+        {
+            int totalConductors = NumDiscs * TurnsPerDisc * NumParallelConductors;
+            ConductorIndexToLogical = new Dictionary<int, LogicalConductorIndex>(totalConductors);
+
+            int conductorIndex = 0;
+            int logicalTurn = 0;
+
             for (int disc = 0; disc < NumDiscs; disc++)
             {
-                int disc_in_pair = disc % 2;
-                int strand = 0;
-                for (int rad_pos = 0; rad_pos < TurnsPerDisc * NumParallelConductors; rad_pos++)
+                for (int turnInDisc = 0; turnInDisc < TurnsPerDisc; turnInDisc++)
                 {
-                    // This may confuse things a bit, but we're going to count the rad_pos here in the direction
-                    // the disc is wound.  So for the first disc in the pair, it's wound from outside to inside, and the second disc
-                    // is wound from inside to outside. When we assign the physical index, we'll account for this.
-                    int layer;
-                    if (disc_in_pair == 0) // First disc in pair, by convention wound from outside to inside
-                        layer = TurnsPerDisc * NumParallelConductors - 1 - rad_pos;
-                    else // Second disc in pair, by convention wound from inside to outside
-                        layer = rad_pos;
-                    var physIndex = new PhysicalConductorIndex(disc, layer);
-
-                    LogicalToPhysicalTurnMap[new LogicalConductorIndex(turn, strand)] = physIndex;
-                    // Increment turn and strand appropriately
-                    if (strand == NumParallelConductors - 1)
+                    for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
-                        strand = 0;
-                        turn++;
+                        ConductorIndexToLogical[conductorIndex] = new LogicalConductorIndex(logicalTurn, strand);
+                        conductorIndex++;
                     }
-                    else
-                    {
-                        strand++;
-                    }
-                }
-            }
-
-            // Print out the mapping for verification
-            for (int t = 0; t < NumTurns; t++)
-            {
-                for (int s = 0; s < NumParallelConductors; s++)
-                {
-                    var phys = LogicalToPhysicalTurnMap[new LogicalConductorIndex(t, s)];
-                    System.Diagnostics.Debug.WriteLine($"Logical turn {t}, strand {s} -> Physical disc {phys.Disc}, layer {phys.Layer}");
+                    logicalTurn++;
                 }
             }
         }
 
-        public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
+        protected override void ComputeConductorLocations()
         {
-            bool include_ins = true;
-            // It appears as though I established the z_offset to half of the winding height.  Why?  No idea.
-            double z_offset = Core.WindowHeight_mm / 2;
-
-            // Note: The number of total turns in a winding may differ from the number of turns in an axisymmetric section
-            // because of partial turns (ie. the disc cross-overs may not be axially aligned). 
-
-            BuildTurnMap();
+            int totalConductors = NumDiscs * TurnsPerDisc * NumParallelConductors;
+            _conductorLocations = new List<ConductorLocationAxi>(totalConductors);
             
-            // Setup conductor and insulation boundaries
-            var conductorins_bdrys = new GeomLineLoop[NumDiscs * TurnsPerDisc * NumParallelConductors];
+            if (ConductorIndexToLogical == null)
+                BuildConductorMapping();
 
-            int cond_idx = 0;
-            int wdg_direction;
+            int windingDirection;
             double z_mid;
             if (ParentSegment.StartLocation == StartNodeLocation.Top)
             {
                 z_mid = DistanceAboveBottomYoke_mm + WindingHeight_mm - ConductorType.TotalHeight_mm / 2; //Turn 0
-                wdg_direction = -1; // Winding goes from top to bottom
+                windingDirection = -1; // Winding goes from top to bottom
             }
             else
             {
                 z_mid = DistanceAboveBottomYoke_mm + ConductorType.TotalHeight_mm / 2; // Turn 0
-                wdg_direction = 1; // Winding goes from bottom to top
+                windingDirection = 1; // Winding goes from bottom to top
             }
 
             // Logical turn is a shit name.  What we mean here is the turn as it appears in the physical winding numbered from
@@ -181,76 +126,94 @@ namespace TfmrLib
             using var gapEnum = SpacerPattern.GetGapEnumerator(NumDiscs - 1, SpacerPatternExhaustedBehavior.Throw);
             bool hasNextGap = false;
 
-            for (int disc = 0; disc < NumDiscs; disc++)
+            for (int conductorIndex = 0; conductorIndex < totalConductors; conductorIndex++)
             {
-                if (disc > 0)
+                var (disc, layer) = GetPhysicalPosition(conductorIndex);
+                
+                // Update z position when moving to new disc
+                if (conductorIndex > 0 && disc > GetPhysicalPosition(conductorIndex - 1).Disc)
                 {
-                    hasNextGap = gapEnum.MoveNext();
-                    if (!hasNextGap)
-                        throw new InvalidOperationException($"Spacer pattern ended prematurely at disc {disc}.");
-                    double gap = gapEnum.Current;
-                    z_mid += wdg_direction * (ConductorType.TotalHeight_mm + gap);
-                }
-
-                // Maybe we dispense with turn/stand here and go to a physical disc/layer where layer is each iteration
-                // of adjacent turns/strands. We then have a physical->logical mapping that takes disc # and layer # and 
-                // spits out the logical turn and strand #s. In effect, this may be no different than physical turn and strand #s
-                // to logical turn and strand #s. Layer # would be turn_in_disc * NumParallelConductors + strand.
-                for (int turn_in_disc = 0; turn_in_disc < TurnsPerDisc; turn_in_disc++)
-                {
-                    logicalTurn += 1;
-                    for (int strand = 0; strand < NumParallelConductors; strand++)
+                    if (gapEnum.MoveNext())
                     {
-                        int layer;
-                        double r_mid;
-                        if (disc % 2 == 0)
-                        {
-                            // Even disc: winding from outside to inside
-                            // turn_in_disc counts down from TurnsPerDisc - 1 to 0
-                            // strand counts up from 0 to NumParallelConductors - 1
-                            r_mid = InnerRadius_mm + (TurnsPerDisc - turn_in_disc) * NumParallelConductors * ConductorType.TotalWidth_mm - strand * ConductorType.TotalWidth_mm - ConductorType.TotalWidth_mm / 2;
-                            layer = (TurnsPerDisc - turn_in_disc) * NumParallelConductors - strand - 1;
-                        }
-                        else
-                        {
-                            // Odd disc: winding from inside to outside
-                            // turn_in_disc counts up from 0 to TurnsPerDisc - 1
-                            // strand counts up from 0 to NumParallelConductors - 1
-                            r_mid = InnerRadius_mm + turn_in_disc * NumParallelConductors * ConductorType.TotalWidth_mm + strand * ConductorType.TotalWidth_mm + ConductorType.TotalWidth_mm / 2;
-                            layer = turn_in_disc * NumParallelConductors + strand;
-                        }
-
-                        var (conductor_bdry, insulation_bdry) = ConductorType.CreateGeometry(ref geometry, r_mid, z_mid - z_offset);
-
-                        LogicalConductorIndex locIdx = PhysicalToLogicalTurnMap[new PhysicalConductorIndex(disc, layer)];
-
-                        var loc = new LocationKey(ParentWinding.Id, ParentSegment.Id, locIdx.Turn, locIdx.Strand);
-
-                        Tags.TagEntityByLocation(conductor_bdry, loc, TagType.ConductorBoundary);
-                        Tags.TagEntityByLocation(insulation_bdry, loc, TagType.InsulationBoundary);
-
-                        //TODO: The above call to ConductorType.CreateGeometry will create both the conductor and the insulation boundaries
-                        // We probably don't want this if we aren't modelling the insulation explicitly
-                        if (include_ins)
-                        {
-                            var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                            Tags.TagEntityByLocation(insulation_surface, loc, TagType.InsulationSurface);
-                            conductorins_bdrys[cond_idx] = insulation_bdry;
-                        }
-                        else
-                        {
-                            conductorins_bdrys[cond_idx] = conductor_bdry;
-                        }
-
-                        var conductor_surface = geometry.AddSurface(conductor_bdry);
-                        Tags.TagEntityByLocation(conductor_surface, loc, TagType.ConductorSurface);
-                        cond_idx++;
+                        double gap = gapEnum.Current;
+                        z_mid += windingDirection * (ConductorType.TotalHeight_mm + gap);
                     }
                 }
-            }
 
+                // Compute radial position based on layer
+                double r_mid = InnerRadius_mm + layer * ConductorType.TotalWidth_mm + ConductorType.TotalWidth_mm / 2;
+
+                // Compute turn length.  This is a bit tricky because the first and last turns in a disc may be partial turns.
+                double turn_length;
+                if (layer == 0 || layer == TurnsPerDisc * NumParallelConductors - 1)
+                {
+                    // Start or end turn, need to compute partial turn length
+                    // We need to first start with the total number of electrical turns in this winding segment
+                    // and then determine how many of those turns are in this disc.
+                    int totalElectricalTurns = NumTurns; // This is the total number of electrical turns in the winding segment
+                    double turnsInThisDisc = totalElectricalTurns / NumDiscs; // This is the number of electrical turns in this disc
+                    double partialTurnFraction = (turnsInThisDisc - Math.Floor(turnsInThisDisc)) / 2; // Fraction of a turn at start or end of disc
+                    if (partialTurnFraction == 0) partialTurnFraction = 1.0;
+                    turn_length = 2.0 * Math.PI * r_mid * partialTurnFraction;
+                }
+                else
+                {
+                    turn_length = 2.0 * Math.PI * r_mid;
+                }
+
+                _conductorLocations.Add(new ConductorLocationAxi(r_mid, z_mid, turn_length));
+            }
+        }
+
+        public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
+        {
+            bool include_ins = true;
+            // It appears as though I established the z_offset to half of the winding height.  Why?  No idea.
+            double z_offset = Core.WindowHeight_mm / 2;
+
+            // Note: The number of total turns in a winding may differ from the number of turns in an axisymmetric section
+            // because of partial turns (ie. the disc cross-overs may not be axially aligned).
+
+            // Setup conductor and insulation boundaries
+            // Loop through conductors in logical order and tag them using the turn map
+            int totalConductors = NumDiscs * TurnsPerDisc * NumParallelConductors;
+
+            if (_conductorLocations == null) ComputeConductorLocations();
+            if (_conductorLocations.Count != totalConductors)
+                throw new InvalidOperationException($"Conductor location count {_conductorLocations.Count} does not match expected number of conductor positions {totalConductors}.");
+
+            // Setup conductor and insulation boundaries
+            var conductorins_bdrys = new GeomLineLoop[totalConductors];
+
+            for (int conductorIndex = 0; conductorIndex < totalConductors; conductorIndex++)
+            {
+                var logical = GetLogicalIndex(conductorIndex);
+                var location = _conductorLocations[conductorIndex];
+                var locationKey = new LocationKey(ParentWinding.Id, ParentSegment.Id, logical.Turn, logical.Strand);
+
+                var (conductorBoundary, insulationBoundary) = ConductorType.CreateGeometry(ref geometry, location.RadialPosition_mm, location.AxialPosition_mm - z_offset);
+
+                Tags.TagEntityByLocation(conductorBoundary, locationKey, TagType.ConductorBoundary);
+                Tags.TagEntityByLocation(insulationBoundary, locationKey, TagType.InsulationBoundary);
+
+                if (include_ins)
+                {
+                    var insulation_surface = geometry.AddSurface(insulationBoundary, conductorBoundary);
+                    Tags.TagEntityByLocation(insulation_surface, locationKey, TagType.InsulationSurface);
+                    conductorins_bdrys[conductorIndex] = insulationBoundary;
+                }
+                else
+                {
+                    conductorins_bdrys[conductorIndex] = conductorBoundary;
+                }
+
+                var conductor_surface = geometry.AddSurface(conductorBoundary);
+                Tags.TagEntityByLocation(conductor_surface, locationKey, TagType.ConductorSurface);
+            }
+            
             return conductorins_bdrys;
         }
+
 
         public override Matrix<double> Calc_Rmatrix(double f = 60)
         {
@@ -270,6 +233,17 @@ namespace TfmrLib
             //R_skin = 0;
             var R_f = R + Matrix<double>.Build.DenseIdentity(num_cond, num_cond) * R_skin;
             return R_f;
+        }
+
+        public override Vector_d GetTurnLengths()
+        {
+            int num_cond = NumParallelConductors * NumTurns;
+            var L_vector = Vector_d.Build.Dense(num_cond);
+            for (int t = 0; t < num_cond; t++)
+            {
+                L_vector[t] = 2.0 * Math.PI * InnerRadius_mm / 1000.0; // in meters
+            }
+            return L_vector;
         }
     }
 

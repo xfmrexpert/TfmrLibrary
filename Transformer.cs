@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using GeometryLib;
-using MathNet.Numerics.Providers.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib
 {
@@ -60,6 +60,26 @@ namespace TfmrLib
                     }
                 }
             };
+        }
+
+        public Vector<double> Calc_TurnLengthVector()
+        {
+            int total_cond = Windings.Sum(wdg => wdg.NumConductors);
+            var length_vector = Vector<double>.Build.Dense(total_cond);
+            int idx = 0;
+            foreach (var wdg in Windings)
+            {
+                foreach (var segment in wdg.Segments)
+                {
+                    var seg_length_vector = segment.Geometry.GetTurnLengths();
+                    for (int i = 0; i < seg_length_vector.Count; i++)
+                    {
+                        length_vector[idx] = seg_length_vector[i];
+                        idx++;
+                    }
+                }
+            }
+            return length_vector;
         }
 
         public void AddWinding(Winding winding)
