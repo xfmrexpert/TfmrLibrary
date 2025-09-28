@@ -82,14 +82,14 @@ namespace TfmrLib
 
     public class TagManager
     {
-        private int nextTag = 0;
+        private int nextTag = 1; // start at 1, as 0 is often "no tag"
         private Dictionary<int, GeomEntity> tagToEntity = new();
         private Dictionary<string, int> entityStringIndex = new();
         private EntityIndex entityLocationIndex = new();
 
         public int TagEntityByLocation(GeomEntity entity, LocationKey loc, TagType type)
         {
-            int tag = 0;
+            int tag = 1;
             if (tagToEntity.ContainsValue(entity))
                 tag = tagToEntity.First(kv => kv.Value == entity).Key;
             else
@@ -102,7 +102,7 @@ namespace TfmrLib
 
         public int TagEntityByString(GeomEntity entity, string key)
         {
-            int tag = 0;
+            int tag = 1;
             if (tagToEntity.ContainsValue(entity))
                 tag = tagToEntity.First(kv => kv.Value == entity).Key;
             else
@@ -182,7 +182,7 @@ namespace TfmrLib
 
         public void ClearTags()
         {
-            nextTag = 0;
+            nextTag = 1;
             tagToEntity.Clear();
             entityStringIndex.Clear();
             entityLocationIndex = new EntityIndex();

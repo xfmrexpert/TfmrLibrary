@@ -18,14 +18,17 @@ namespace TfmrLib
     public class FEMMatrixCalculator : IRLCMatrixCalculator
     {
         private Mesh mesh;
+        private string meshFile;
 
         private void GenerateMesh(Transformer tfmr)
         {
+            var meshGen = new MeshGenerator();
             var geometry = tfmr.GenerateGeometry();
-            //GmshFile gmshFile = new GmshFile("case.geo");
-            ///gmshFile.CreateFromGeometry(geometry);
-            double meshscale = 1.0;
-            //mesh = gmshFile.GenerateMesh(meshscale, 2);
+            double meshscale = 0.1;
+            meshGen.AddGeometry(geometry);
+            var geoFile = "case.geo";
+            meshFile = "case.msh";
+            mesh = meshGen.GenerateMesh(geoFile, meshscale, 2);
         }
 
         public Matrix<double> Calc_Lmatrix(Transformer tfmr, double freq)
@@ -59,6 +62,7 @@ namespace TfmrLib
                                 globalConductor++;
                                 var row = CalcInductance(tfmr, globalTurn, localStrand, freq, order);
                                 Console.WriteLine($"L matrix row for turn {globalTurn} strand {localStrand} at {freq.ToString("0.##E0")}Hz calculated.  Adding to row {globalConductor} of L matrix.");
+                                Console.WriteLine($"L row: {string.Join(", ", row.ToArray())}");
 
                                 // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
                                 lock (L_getdp)
@@ -105,21 +109,19 @@ namespace TfmrLib
             Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {excitedTurn}");
 
             var fem = new GetDPAxiMagProblem();
+            fem.MeshFile = meshFile;
+            fem.Filename = $"./Results/{excitedTurn}/case.pro";
 
             var oil = new Material("Oil")
             {
                 Properties = new Dictionary<string, double> {
-                { "mu_r", 1.0 },
-                { "epsr", tfmr.eps_oil },
-                { "loss_tan", tfmr.ins_loss_factor } }
+                { "mu_r", 1.0 } }
             };
 
             var paper = new Material("Paper")
             {
                 Properties = new Dictionary<string, double> {
-                { "mu_r", 1.0 },
-                { "epsr", tfmr.Windings[0].eps_paper },
-                { "loss_tan", tfmr.ins_loss_factor } }
+                { "mu_r", 1.0 } }
             };
 
             var copper = new Material("Copper")
@@ -133,7 +135,8 @@ namespace TfmrLib
             fem.Materials.Add(paper);
             fem.Materials.Add(copper);
             fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
-            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg"), tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Axis", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
+            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
             int globalTurn = 0;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {
@@ -169,7 +172,7 @@ namespace TfmrLib
 
             fem.Solve();
 
-            var resultFile = File.OpenText("out.txt");
+            var resultFile = File.OpenText($"./Results/{excitedTurn}/out.txt");
             string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
             var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), double.Parse);
 
