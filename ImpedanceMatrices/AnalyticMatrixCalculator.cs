@@ -31,14 +31,18 @@ namespace TfmrLib
                 {
                     for (int strand = 0; strand < segmentGeometry.NumParallelConductors; strand++)
                     {
-                        (double r_i, double z_i) = segmentGeometry.GetConductorMidpoint(turn, strand);
+                        (double r_i, double z_i) = segmentGeometry.GetConductorPosition(turn, strand);
                         L[idx, idx] = CalcSelfInductance(segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_i, wdg.rho_c, f) / (2 * Math.PI * r_i);
-                        for (int j = idx + 1; j < wdg.num_turns; j++)
+                        for (int j = idx + 1; j < wdg.NumTurns; j++)
                         {
-                            (double r_j, double z_j) = wdg.GetTurnMidpoint(j);
-                            L[i, j] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_i);
-                            L[j, i] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_j);
+                            for (int s2 = 0; s2 < segmentGeometry.NumParallelConductors; s2++)
+                            {
+                                (double r_j, double z_j) = segmentGeometry.GetConductorPosition(j, s2);
+                                L[idx, j] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_i);
+                                L[j, idx] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_j);
+                            }
                         }
+                        idx++;
                     }
                 }
             }
@@ -48,21 +52,61 @@ namespace TfmrLib
 
         public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f = 60)
         {
-            int total_turns = 0;
+            int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
-                total_turns += wdg.num_turns;
+                total_conductors += wdg.NumConductors;
             }
 
-            LinAlg.Matrix<double> L = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+            LinAlg.Matrix<double> L = LinAlg.Matrix<double>.Build.Dense(total_conductors, total_conductors);
 
-            int start = 0;
+            int idx_i = -1;
             foreach (Winding wdg in tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                foreach (var segment in wdg.Segments)
                 {
-                    L.SetSubMatrix(start, start, Calc_Lmatrix_Wdg(wdg, f));
-                    start += wdg.num_turns;
+                    if (segment.Geometry == null)
+                    {
+                        continue; // Skip segments without geometry
+                    }
+
+                    var segmentGeometry = segment.Geometry;
+
+                    for (int turn = 0; turn < segmentGeometry.NumTurns; turn++)
+                    {
+                        for (int strand = 0; strand < segmentGeometry.NumParallelConductors; strand++)
+                        {
+                            idx_i++;
+                            (double r_i, double z_i) = segmentGeometry.GetConductorPosition(turn, strand);
+                            L[idx_i, idx_i] = CalcSelfInductance(segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_i, segmentGeometry.ConductorType.rho_c, f) / (2 * Math.PI * r_i);
+
+                            int idx_j = -1;
+                            foreach (Winding otherWdg in tfmr.Windings)
+                            {
+                                foreach (var otherSegment in otherWdg.Segments)
+                                {
+                                    if (otherSegment.Geometry == null)
+                                    {
+                                        continue; // Skip segments without geometry
+                                    }
+
+                                    var otherSegmentGeometry = otherSegment.Geometry;
+
+                                    for (int j = 0; j < otherSegmentGeometry.NumTurns; j++)
+                                    {
+                                        for (int s2 = 0; s2 < otherSegmentGeometry.NumParallelConductors; s2++)
+                                        {
+                                            idx_j++;
+                                            if (idx_j <= idx_i) continue; // Only compute upper triangle, matrix is symmetric
+                                            (double r_j, double z_j) = otherSegmentGeometry.GetConductorPosition(j, s2);
+                                            L[idx_i, idx_j] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, otherSegmentGeometry.ConductorType.BareHeight_mm, otherSegmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_i);
+                                            L[idx_j, idx_i] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, otherSegmentGeometry.ConductorType.BareHeight_mm, otherSegmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_j);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             return L;
@@ -70,21 +114,21 @@ namespace TfmrLib
 
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
-            int total_turns = 0;
+            int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
-                total_turns += wdg.num_turns;
+                total_conductors += wdg.NumConductors;
             }
 
-            LinAlg.Matrix<double> C = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+            LinAlg.Matrix<double> C = LinAlg.Matrix<double>.Build.Dense(total_conductors, total_conductors);
 
             int start = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                if (wdg.NumTurns > 0)
                 {
                     C.SetSubMatrix(start, start, Calc_Cmatrix_Wdg(wdg));
-                    start += wdg.num_turns;
+                    start += wdg.NumTurns;
                 }
             }
             return C;
@@ -96,174 +140,174 @@ namespace TfmrLib
 
             var M = Matrix<double>.Build;
 
-            Matrix<double> C = M.Dense(wdg.num_turns, wdg.num_turns);
+            Matrix<double> C = M.Dense(wdg.NumTurns, wdg.NumTurns);
 
             //TODO: Need to modify to go from out to in and in to out
-            for (int i = 0; i < wdg.num_discs; i++)
-            {
-                double C_abv;
-                double C_bel;
-                int n_abv;
-                int n_bel;
-                double dist_to_ground = 10;
-                double k = 1.0 / 3.0;
-                //Console.WriteLine($"Disc {i}");
-                // For now, let's calculate four capacitances for each turn
-                // If last disc (section), above is prev disc, below is tank
-                // TODO: How to handle segments above and below
-                if (i == (wdg.num_discs - 1))
-                {
-                    C_abv = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
-                    C_abv = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) /  eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
-                    n_abv = i - 1;
-                    C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / dist_to_ground;
-                    n_bel = -1;
-                    //Console.WriteLine($"Last (bottom) Disc: C_abv={C_abv} C_bel={C_bel}");
-                }
-                else if (i == 0) // If first disc, above is tank, below is next disc
-                {
-                    C_abv = Constants.eps_0 * eps_oil * wdg.t_cond / dist_to_ground;
-                    n_abv = -1;
-                    C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
-                    C_bel = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
-                    n_bel = i + 1;
-                    //Console.WriteLine($"First (top) Disc: C_abv={C_abv} C_bel={C_bel}");
-                }
-                else
-                {
-                    C_abv = C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
-                    C_abv = C_bel = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
-                    n_abv = i - 1;
-                    n_bel = i + 1;
-                    //Console.WriteLine($"Middle Disc: C_abv={C_abv} C_bel={C_bel}");
-                }
+            // for (int i = 0; i < wdg.num_discs; i++)
+            // {
+            //     double C_abv;
+            //     double C_bel;
+            //     int n_abv;
+            //     int n_bel;
+            //     double dist_to_ground = 10;
+            //     double k = 1.0 / 3.0;
+            //     //Console.WriteLine($"Disc {i}");
+            //     // For now, let's calculate four capacitances for each turn
+            //     // If last disc (section), above is prev disc, below is tank
+            //     // TODO: How to handle segments above and below
+            //     if (i == (wdg.num_discs - 1))
+            //     {
+            //         C_abv = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+            //         C_abv = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) /  eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
+            //         n_abv = i - 1;
+            //         C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / dist_to_ground;
+            //         n_bel = -1;
+            //         //Console.WriteLine($"Last (bottom) Disc: C_abv={C_abv} C_bel={C_bel}");
+            //     }
+            //     else if (i == 0) // If first disc, above is tank, below is next disc
+            //     {
+            //         C_abv = Constants.eps_0 * eps_oil * wdg.t_cond / dist_to_ground;
+            //         n_abv = -1;
+            //         C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+            //         C_bel = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
+            //         n_bel = i + 1;
+            //         //Console.WriteLine($"First (top) Disc: C_abv={C_abv} C_bel={C_bel}");
+            //     }
+            //     else
+            //     {
+            //         C_abv = C_bel = Constants.eps_0 * eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+            //         C_abv = C_bel = Constants.eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
+            //         n_abv = i - 1;
+            //         n_bel = i + 1;
+            //         //Console.WriteLine($"Middle Disc: C_abv={C_abv} C_bel={C_bel}");
+            //     }
 
-                for (int j = 0; j < wdg.turns_per_disc; j++)
-                {
-                    double C_lt;
-                    double C_rt;
+            //     for (int j = 0; j < wdg.turns_per_disc; j++)
+            //     {
+            //         double C_lt;
+            //         double C_rt;
 
-                    bool out_to_in = (i % 2 == 0);
+            //         bool out_to_in = (i % 2 == 0);
 
-                    // If first turn in section, left is inner winding or core, right is next turn
-                    if ((j == 0 && !out_to_in) || (j == (wdg.turns_per_disc - 1) && out_to_in))
-                    {
-                        C_lt = Constants.eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
-                        C_rt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
+            //         // If first turn in section, left is inner winding or core, right is next turn
+            //         if ((j == 0 && !out_to_in) || (j == (wdg.turns_per_disc - 1) && out_to_in))
+            //         {
+            //             C_lt = Constants.eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
+            //             C_rt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
 
-                    }
-                    else if ((j == (wdg.turns_per_disc - 1) && !out_to_in) || (j == 0 && out_to_in)) // If last turn in section, left is previous turn, right is outer winding or tank
-                    {
-                        C_lt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
-                        C_rt = Constants.eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
-                    }
-                    else
-                    {
-                        C_lt = C_rt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
-                    }
+            //         }
+            //         else if ((j == (wdg.turns_per_disc - 1) && !out_to_in) || (j == 0 && out_to_in)) // If last turn in section, left is previous turn, right is outer winding or tank
+            //         {
+            //             C_lt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
+            //             C_rt = Constants.eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
+            //         }
+            //         else
+            //         {
+            //             C_lt = C_rt = Constants.eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
+            //         }
 
-                    int disc_abv = i - 1;
-                    if (disc_abv < 0)
-                    {
-                        // ground above
-                        n_abv = -1;
-                    }
-                    else
-                    {
-                        n_abv = disc_abv * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
-                    }
-                    int disc_bel = i + 1;
-                    if (disc_bel >= wdg.num_discs)
-                    {
-                        // ground below
-                        n_bel = -1;
-                    }
-                    else
-                    {
-                        n_bel = disc_bel * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
-                    }
+            //         int disc_abv = i - 1;
+            //         if (disc_abv < 0)
+            //         {
+            //             // ground above
+            //             n_abv = -1;
+            //         }
+            //         else
+            //         {
+            //             n_abv = disc_abv * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
+            //         }
+            //         int disc_bel = i + 1;
+            //         if (disc_bel >= wdg.num_discs)
+            //         {
+            //             // ground below
+            //             n_bel = -1;
+            //         }
+            //         else
+            //         {
+            //             n_bel = disc_bel * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
+            //         }
 
-                    int n_lt;
-                    int n_rt;
+            //         int n_lt;
+            //         int n_rt;
 
-                    if (i % 2 == 0) //out to in
-                    {
-                        n_lt = i * wdg.turns_per_disc + j + 1;
-                        n_rt = i * wdg.turns_per_disc + j - 1;
-                        if (j == 0)
-                        {
-                            n_rt = -1;
-                        }
-                        if (j >= (wdg.turns_per_disc - 1))
-                        {
-                            n_lt = -1;
-                        }
-                        //Console.WriteLine("Out to in");
-                    }
-                    else //in to out
-                    {
-                        n_lt = i * wdg.turns_per_disc + j - 1;
-                        n_rt = i * wdg.turns_per_disc + j + 1;
-                        if (j == 0)
-                        {
-                            n_lt = -1;
-                        }
-                        if (j >= (wdg.turns_per_disc - 1))
-                        {
-                            n_rt = -1;
-                        }
-                        //Console.WriteLine($"{j}");
-                        //Console.WriteLine("In to out");
-                    }
+            //         if (i % 2 == 0) //out to in
+            //         {
+            //             n_lt = i * wdg.turns_per_disc + j + 1;
+            //             n_rt = i * wdg.turns_per_disc + j - 1;
+            //             if (j == 0)
+            //             {
+            //                 n_rt = -1;
+            //             }
+            //             if (j >= (wdg.turns_per_disc - 1))
+            //             {
+            //                 n_lt = -1;
+            //             }
+            //             //Console.WriteLine("Out to in");
+            //         }
+            //         else //in to out
+            //         {
+            //             n_lt = i * wdg.turns_per_disc + j - 1;
+            //             n_rt = i * wdg.turns_per_disc + j + 1;
+            //             if (j == 0)
+            //             {
+            //                 n_lt = -1;
+            //             }
+            //             if (j >= (wdg.turns_per_disc - 1))
+            //             {
+            //                 n_rt = -1;
+            //             }
+            //             //Console.WriteLine($"{j}");
+            //             //Console.WriteLine("In to out");
+            //         }
 
-                    int n = i * wdg.turns_per_disc + j;
-                    //Console.WriteLine($"n: {n} n_abv: {n_abv} n_bel: {n_bel} n_lt: {n_lt} n_rt: {n_rt}");
+            //         int n = i * wdg.turns_per_disc + j;
+            //         //Console.WriteLine($"n: {n} n_abv: {n_abv} n_bel: {n_bel} n_lt: {n_lt} n_rt: {n_rt}");
 
-                    // Assemble C_abv, C_bel, C_lt, C_rt into C_seg
-                    C[n, n] = C_abv + C_bel + C_lt + C_rt;
-                    if (n_abv >= 0)
-                    {
-                        C[n, n_abv] = -C_abv;
-                        C[n_abv, n] = -C_abv;
-                    }
-                    if (n_bel >= 0)
-                    {
-                        C[n, n_bel] = -C_bel;
-                        C[n_bel, n] = -C_bel;
-                    }
-                    if (n_lt >= 0)
-                    {
-                        C[n, n_lt] = -C_lt;
-                        C[n_lt, n] = -C_lt;
-                    }
-                    if (n_rt >= 0)
-                    {
-                        C[n, n_rt] = -C_rt;
-                        C[n_rt, n] = -C_rt;
-                    }
-                }
-            }
+            //         // Assemble C_abv, C_bel, C_lt, C_rt into C_seg
+            //         C[n, n] = C_abv + C_bel + C_lt + C_rt;
+            //         if (n_abv >= 0)
+            //         {
+            //             C[n, n_abv] = -C_abv;
+            //             C[n_abv, n] = -C_abv;
+            //         }
+            //         if (n_bel >= 0)
+            //         {
+            //             C[n, n_bel] = -C_bel;
+            //             C[n_bel, n] = -C_bel;
+            //         }
+            //         if (n_lt >= 0)
+            //         {
+            //             C[n, n_lt] = -C_lt;
+            //             C[n_lt, n] = -C_lt;
+            //         }
+            //         if (n_rt >= 0)
+            //         {
+            //             C[n, n_rt] = -C_rt;
+            //             C[n_rt, n] = -C_rt;
+            //         }
+            //     }
+            // }
 
             return C;
         }
 
         public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
         {
-            int total_turns = 0;
+            int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
-                total_turns += wdg.num_turns;
+                total_conductors += wdg.NumConductors;
             }
 
-            LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+            LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_conductors, total_conductors);
 
             int start = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                if (wdg.NumTurns > 0)
                 {
-                    R.SetSubMatrix(start, start, wdg.Calc_Rmatrix(f));
-                    start += wdg.num_turns;
+                    //R.SetSubMatrix(start, start, wdg.Calc_Rmatrix(f));
+                    start += wdg.NumTurns;
                 }
             }
             return R;
