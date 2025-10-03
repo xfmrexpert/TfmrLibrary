@@ -109,6 +109,7 @@ namespace TfmrLib
             Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {excitedTurn}");
 
             var fem = new GetDPAxiMagProblem();
+            fem.Order = order;
             fem.MeshFile = meshFile;
             fem.Filename = $"./Results/{excitedTurn}/case.pro";
 

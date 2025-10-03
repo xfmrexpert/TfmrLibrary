@@ -78,7 +78,7 @@ namespace TfmrLib
                         {
                             idx_i++;
                             (double r_i, double z_i) = segmentGeometry.GetConductorPosition(turn, strand);
-                            L[idx_i, idx_i] = CalcSelfInductance(segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_i, segmentGeometry.ConductorType.rho_c, f) / (2 * Math.PI * r_i);
+                            L[idx_i, idx_i] = CalcSelfInductance(segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_i, segmentGeometry.ConductorType.rho_c, f);// / (2 * Math.PI * r_i);
 
                             int idx_j = -1;
                             foreach (Winding otherWdg in tfmr.Windings)
@@ -99,8 +99,8 @@ namespace TfmrLib
                                             idx_j++;
                                             if (idx_j <= idx_i) continue; // Only compute upper triangle, matrix is symmetric
                                             (double r_j, double z_j) = otherSegmentGeometry.GetConductorPosition(j, s2);
-                                            L[idx_i, idx_j] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, otherSegmentGeometry.ConductorType.BareHeight_mm, otherSegmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_i);
-                                            L[idx_j, idx_i] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, otherSegmentGeometry.ConductorType.BareHeight_mm, otherSegmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_j);
+                                            L[idx_i, idx_j] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, otherSegmentGeometry.ConductorType.BareHeight_mm, otherSegmentGeometry.ConductorType.BareWidth_mm);// / (2 * Math.PI * r_i);
+                                            L[idx_j, idx_i] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, otherSegmentGeometry.ConductorType.BareHeight_mm, otherSegmentGeometry.ConductorType.BareWidth_mm);// / (2 * Math.PI * r_j);
                                         }
                                     }
                                 }
@@ -313,8 +313,12 @@ namespace TfmrLib
             return R;
         }
 
-        private double CalcSelfInductance(double h, double w, double r_avg, double rho_c, double f)
+        private double CalcSelfInductance(double h_mm, double w_mm, double r_avg_mm, double rho_c, double f)
         {
+            var h = h_mm / 1000.0; // Convert to meters
+            var w = w_mm / 1000.0; // Convert to meters
+            var r_avg = r_avg_mm / 1000.0; // Convert to meters
+
             double mu_r = 1.0;
             double sigma = 1.0 / rho_c; // Conductivity of copper (S/m)
             double GMD = Math.Exp(0.5 * Math.Log(h * h + w * w) + 2 * w / (3 * h) * Math.Atan(h / w) + 2 * h / (3 * w) * Math.Atan(w / h) - w * w / (12 * h * h) * Math.Log(1 + h * h / (w * w)) - h * h / (12 * w * w) * Math.Log(1 + w * w / (h * h)) - 25 / 12);
@@ -328,8 +332,15 @@ namespace TfmrLib
             return L_s;
         }
 
-        private double CalcInductanceCoaxLoops(double r_a, double z_a, double r_b, double z_b)
+        private double CalcInductanceCoaxLoops(double r_a_mm, double z_a_mm, double r_b_mm, double z_b_mm)
         {
+            double r_a = r_a_mm / 1000.0; // Convert to meters
+            double z_a = z_a_mm / 1000.0; // Convert to meters
+            double r_b = r_b_mm / 1000.0; // Convert to meters
+            double z_b = z_b_mm / 1000.0; // Convert to meters
+
+            if (r_a == 0 || r_b == 0) return 0;
+
             double d = Math.Abs(z_b - z_a);
             double k = Math.Sqrt(4 * r_a * r_b / ((r_a + r_b) * (r_a + r_b) + d * d));
             double L_ab = 2 * Constants.mu_0 / k * Math.Sqrt(r_a * r_b) * ((1 - k * k / 2) * Elliptic.EllipticK(k) - Elliptic.EllipticE(k));
@@ -349,7 +360,7 @@ namespace TfmrLib
                 double beta = Math.Sqrt(((h * h) - (w * w)) / 12);
                 r_i = r_adj;
                 z_i = z + beta;
-                r_j = r;
+                r_j = r_adj;
                 z_j = z - beta;
             }
             else
@@ -357,9 +368,9 @@ namespace TfmrLib
                 // Two rings with r_avg = r_1 and r_1 + 2*delta and at z = d
                 double r_adj = r * (1 + h * h / (24 * r * r));
                 double delta = Math.Sqrt(((w * w) - (h * h)) / 12);
-                r_i = r;
+                r_i = r_adj - delta;
                 z_i = z;
-                r_j = r + 2 * delta;
+                r_j = r_adj + delta;
                 z_j = z;
             }
 
