@@ -136,8 +136,8 @@ namespace TfmrLib
             fem.Materials.Add(paper);
             fem.Materials.Add(copper);
             fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
-            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Axis", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
-            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Axis", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") }, Potential = 0.0 });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") }, Potential = 0.0 });
             int globalTurn = 0;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {
@@ -181,10 +181,6 @@ namespace TfmrLib
             resultFile.Close();
 
             return L;
-
-            // Use the older method with getdp executable directly for now
-            //return CalcInductanceOld(tfmr, excitedTurn, freq, order);
-            return null;
         }
 
         // private Vector_d CalcInductanceOld(Transformer tfmr, int posTurn, double freq, int order = 1)
@@ -416,7 +412,7 @@ namespace TfmrLib
                             for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
                             {
                                 globalConductor++;
-                                var row = CalcCapacitance(tfmr, globalTurn, order: 1);
+                                var row = CalcCapacitance(tfmr, globalTurn, localStrand, order: 1);
 
                                 // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
                                 lock (C_getdp)
@@ -458,10 +454,88 @@ namespace TfmrLib
             return C_getdp;
         }
 
-        private Vector_d CalcCapacitance(Transformer tfmr, int turn, int order = 1)
+        private Vector_d CalcCapacitance(Transformer tfmr, int excitedTurn, int excitedStrand, int order = 1)
         {
             
-            return null;
+            var fem = new GetDPAxiElecProblem();
+            fem.Order = order;
+            fem.MeshFile = meshFile;
+            fem.Filename = $"./Results/{excitedTurn}/case.pro";
+
+            var oil = new Material("Oil")
+            {
+                Properties = new Dictionary<string, double> {
+                { "eps_r", 1.0 } }
+            };
+
+            var paper = new Material("Paper")
+            {
+                Properties = new Dictionary<string, double> {
+                { "eps_r", 1.0 } }
+            };
+
+            var conductor = new Material("Conductor") // Dummy material for copper conductor area
+            {
+                Properties = new Dictionary<string, double> {
+                { "eps_r", 1.0 } }
+            };
+
+            fem.Materials.Add(oil);
+            fem.Materials.Add(paper);
+            
+            fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
+            if (tfmr.Core.CoreLegRadius_mm > 0)
+            {
+                fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") }, Potential = 0.0 });
+            }
+            else
+            {
+                fem.BoundaryConditions.Add(new NeumannBoundaryCondition() { Name = "Axis", Tags = new List<int>() {tfmr.TagManager.GetTagByString("CoreLeg") }, Flux = 0.0 });
+            }
+            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            int globalTurn = 0;
+            for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
+            {
+                var wdg = tfmr.Windings[wdgNum];
+                for (int segNum = 0; segNum < wdg.Segments.Count; segNum++)
+                {
+                    var seg = wdg.Segments[segNum];
+                    if (seg.Geometry != null)
+                    {
+                        var seg_geom = seg.Geometry;
+                        for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++, globalTurn++)
+                        {
+                            for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+                            {
+                                var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
+                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) }, Material = paper };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) }, Material = conductor };
+                                fem.Regions.Add(regionIns);
+                                fem.Regions.Add(regionCond);
+                                if (globalTurn == excitedTurn && localStrand == excitedStrand)
+                                {
+                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
+                                }
+                                else
+                                {
+                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            fem.Solve();
+
+            var resultFile = File.OpenText($"./Results/{excitedTurn}/out.txt");
+            string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
+            var C_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), double.Parse);
+
+            var C = Vector_d.Build.Dense(C_array);
+            resultFile.Close();
+
+            return C;
         }
 
         // private Vector_d CalcCapacitance(Transformer tfmr, int posTurn, int order = 1)
