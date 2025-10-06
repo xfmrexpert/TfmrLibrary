@@ -15,6 +15,9 @@ namespace TfmrLib.FEM
         public int Order { get; set; } = 1;
         public bool ShowInTerminal { get; set; } = false;
 
+        protected string formulation;
+        protected string postop;
+
         private string FindGetDPExecutable()
         {
             if (!string.IsNullOrEmpty(GetDPPath) && File.Exists(GetDPPath))
@@ -98,7 +101,7 @@ namespace TfmrLib.FEM
                 if (tags.Count > 0)
                     f.WriteLine($"  {mat.Name} = Region[{{{string.Join(", ", tags)}}}];");
             }
-            f.WriteLine($"  ProblemDomain = Region[{{{string.Join(", ", Regions.SelectMany(r => r.Tags).Distinct())}}}];");
+            f.WriteLine($"  ProblemDomain = Region[{{{string.Join(", ", Regions.Where(r => r.Material is not null).SelectMany(r => r.Tags).Distinct())}}}];");
             f.WriteLine("}");
 
 
@@ -137,7 +140,7 @@ namespace TfmrLib.FEM
 
             WriteGetDPFile();
 
-            string args = $"{Filename} -msh {MeshFile} -solve Magnetodynamics2D_av -pos dyn -v 5";
+            string args = $"{Filename} -msh {MeshFile} -solve {formulation} -pos {postop} -v 5";
 
             if (ShowInTerminal)
             {

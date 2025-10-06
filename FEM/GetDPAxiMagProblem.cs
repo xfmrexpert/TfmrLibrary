@@ -3,8 +3,11 @@ namespace TfmrLib.FEM
 {
     public class GetDPAxiMagProblem : GetDPProblem
     {
-        // Need a way to identify conducting regions generically, based on region properties, I suppose
-        // I suppose we could just assume any region with a conductivity property is a conductor?
+        public GetDPAxiMagProblem()
+        {
+            formulation = "Magnetodynamics2D_av";
+            postop = "dyn";
+        }
 
         protected override void WriteGetDPFile()
         {

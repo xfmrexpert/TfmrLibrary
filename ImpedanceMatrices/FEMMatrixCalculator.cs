@@ -397,8 +397,8 @@ namespace TfmrLib
             Matrix<double> C_getdp = Matrix<double>.Build.Dense(total_conductors, total_conductors);
 
             
-            int globalTurn = 0;
-            int globalConductor = 0;
+            int globalTurn = -1;
+            int globalConductor = -1;
             foreach (var wdg in tfmr.Windings)
             {
                 foreach (var seg in wdg.Segments)
@@ -413,7 +413,8 @@ namespace TfmrLib
                             {
                                 globalConductor++;
                                 var row = CalcCapacitance(tfmr, globalTurn, localStrand, order: 1);
-
+                                Console.WriteLine($"C matrix row for turn {globalTurn} strand {localStrand} calculated.  Adding to row {globalConductor} of C matrix.");
+                                Console.WriteLine($"C row: {string.Join(", ", row.ToArray())}");
                                 // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
                                 lock (C_getdp)
                                 {
@@ -471,18 +472,18 @@ namespace TfmrLib
             var paper = new Material("Paper")
             {
                 Properties = new Dictionary<string, double> {
-                { "eps_r", 1.0 } }
+                { "eps_r", 2.0 } }
             };
 
-            var conductor = new Material("Conductor") // Dummy material for copper conductor area
-            {
-                Properties = new Dictionary<string, double> {
-                { "eps_r", 1.0 } }
-            };
+            // var conductor = new Material("Conductor") // Dummy material for copper conductor area
+            // {
+            //     Properties = new Dictionary<string, double> {
+            //     { "eps_r", 1.0 } }
+            // };
 
             fem.Materials.Add(oil);
             fem.Materials.Add(paper);
-            
+            //fem.Materials.Add(conductor);
             fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
             if (tfmr.Core.CoreLegRadius_mm > 0)
             {
@@ -509,9 +510,10 @@ namespace TfmrLib
                             {
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
                                 var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) }, Material = paper };
-                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) }, Material = conductor };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
                                 fem.Regions.Add(regionIns);
                                 fem.Regions.Add(regionCond);
+                                
                                 if (globalTurn == excitedTurn && localStrand == excitedStrand)
                                 {
                                     fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
@@ -528,9 +530,9 @@ namespace TfmrLib
 
             fem.Solve();
 
-            var resultFile = File.OpenText($"./Results/{excitedTurn}/out.txt");
+            var resultFile = File.OpenText($"./Results/{excitedTurn}/q.txt");
             string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
-            var C_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), double.Parse);
+            var C_array = Array.ConvertAll(line.Split().Skip(2).ToArray(), double.Parse);
 
             var C = Vector_d.Build.Dense(C_array);
             resultFile.Close();

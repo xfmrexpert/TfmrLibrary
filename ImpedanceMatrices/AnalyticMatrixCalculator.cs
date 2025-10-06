@@ -11,45 +11,7 @@ namespace TfmrLib
     public class AnalyticMatrixCalculator : IRLCMatrixCalculator
     {
         //PUL Inductances
-        private Matrix<double> Calc_Lmatrix_Wdg(Winding wdg, double f = 60)
-        {
-            var M = Matrix<double>.Build;
-
-            Matrix<double> L = M.Dense(wdg.NumConductors, wdg.NumConductors);
-
-            foreach (var segment in wdg.Segments)
-            {
-                if (segment.Geometry == null)
-                {
-                    continue; // Skip segments without geometry
-                }
-
-                var segmentGeometry = segment.Geometry;
-
-                int idx = 0;
-                for (int turn = 0; turn < segmentGeometry.NumTurns; turn++)
-                {
-                    for (int strand = 0; strand < segmentGeometry.NumParallelConductors; strand++)
-                    {
-                        (double r_i, double z_i) = segmentGeometry.GetConductorPosition(turn, strand);
-                        L[idx, idx] = CalcSelfInductance(segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_i, wdg.rho_c, f) / (2 * Math.PI * r_i);
-                        for (int j = idx + 1; j < wdg.NumTurns; j++)
-                        {
-                            for (int s2 = 0; s2 < segmentGeometry.NumParallelConductors; s2++)
-                            {
-                                (double r_j, double z_j) = segmentGeometry.GetConductorPosition(j, s2);
-                                L[idx, j] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_i);
-                                L[j, idx] += CalcMutualInductance_Lyle(r_i, z_i, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm, r_j, z_j, segmentGeometry.ConductorType.BareHeight_mm, segmentGeometry.ConductorType.BareWidth_mm) / (2 * Math.PI * r_j);
-                            }
-                        }
-                        idx++;
-                    }
-                }
-            }
-
-            return L;
-        }
-
+        
         public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f = 60)
         {
             int total_conductors = 0;
@@ -85,11 +47,6 @@ namespace TfmrLib
                             {
                                 foreach (var otherSegment in otherWdg.Segments)
                                 {
-                                    if (otherSegment.Geometry == null)
-                                    {
-                                        continue; // Skip segments without geometry
-                                    }
-
                                     var otherSegmentGeometry = otherSegment.Geometry;
 
                                     for (int j = 0; j < otherSegmentGeometry.NumTurns; j++)
@@ -112,6 +69,7 @@ namespace TfmrLib
             return L;
         }
 
+        //TODO: Reimplement capacitance matrix calculations for new transformer model with multiple windings
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
             int total_conductors = 0;

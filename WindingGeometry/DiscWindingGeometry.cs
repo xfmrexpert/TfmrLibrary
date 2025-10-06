@@ -207,10 +207,12 @@ namespace TfmrLib
                     conductorins_bdrys[conductorIndex] = conductorBoundary;
                 }
 
+                // 2D region that is conductor interior
                 var conductor_surface = geometry.AddSurface(conductorBoundary);
                 Tags.TagEntityByLocation(conductor_surface, locationKey, TagType.ConductorSurface);
             }
             
+            // Return outer boundary of conductor representations to allow "holes" in the remainder of the geometry
             return conductorins_bdrys;
         }
 
