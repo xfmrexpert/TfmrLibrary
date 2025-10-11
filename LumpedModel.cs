@@ -39,17 +39,17 @@ namespace TfmrLib
                 total_turns += wdg.NumTurns;
             }
 
-            // Gamma is the diagonal matrix of conductors radii
+            // Gamma is the diagonal matrix of conductors turn lengths
             Gamma = M_d.Dense(total_turns, total_turns); 
 
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                if (wdg.NumConductors > 0)
+                foreach (WindingSegment seg in wdg.Segments)
                 {
                     // Add winding turn length to Gamma
-                    Gamma.SetSubMatrix(start, start, M_d.DenseOfDiagonalVector(2d * Math.PI * wdg.Calc_TurnRadii()));
-                    start += wdg.NumConductors;
+                    Gamma.SetSubMatrix(start, start, M_d.DenseOfDiagonalVector(seg.Geometry.GetTurnLengths_m()));
+                    start += seg.Geometry.NumConductors;
                 }
             }
 
@@ -74,8 +74,7 @@ namespace TfmrLib
             int start_turn = 0;
             foreach (var wdg in Tfmr.Windings)
             {
-                if (wdg.num_turns == 0) continue;
-                for (int t = 0; t < wdg.num_turns; t++)
+                foreach (var seg in wdg.Segments)
                 {
                     // t is branch number
                     // first node in branch 

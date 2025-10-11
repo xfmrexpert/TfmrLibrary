@@ -155,11 +155,11 @@ namespace TfmrLib
             int start = 0;
             foreach (Winding wdg in Tfmr.Windings)
             {
-                if (wdg.NumTurns > 0)
+                foreach (WindingSegment seg in wdg.Segments)
                 {
                     // Add winding turn length to Gamma
-                    Gamma.SetSubMatrix(start, start, M_d.DenseOfDiagonalVector(2d * Math.PI * wdg.Calc_TurnRadii()));
-                    start += wdg.NumConductors;
+                    Gamma.SetSubMatrix(start, start, M_d.DenseOfDiagonalVector(seg.Geometry.GetTurnLengths_m()));
+                    start += seg.Geometry.NumConductors;
                 }
             }    
             

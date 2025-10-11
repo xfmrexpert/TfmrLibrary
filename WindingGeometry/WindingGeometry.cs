@@ -69,6 +69,7 @@ namespace TfmrLib
         // Public properties
         public WindingType Type { get; protected set; }
         public virtual int NumTurns { get; set; } // Total number of complete turns in the winding (overriden in multistart)
+        public int NumConductors => NumTurns * NumParallelConductors;
         public Conductor ConductorType { get; set; }
         public int NumParallelConductors { get; set; } = 1; // Number of conductors in parallel
         public Orientation ParallelOrientation { get; set; } = Orientation.Radial; // Orientation of parallel conductors

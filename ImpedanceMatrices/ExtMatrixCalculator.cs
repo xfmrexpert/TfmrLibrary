@@ -119,21 +119,21 @@ namespace TfmrLib
 
         public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
         {
-            int total_turns = 0;
+            int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
-                total_turns += wdg.num_turns;
+                total_conductors += wdg.NumConductors;
             }
 
-            LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_turns, total_turns);
+            LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_conductors, total_conductors);
 
             int start = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
-                if (wdg.num_turns > 0)
+                foreach (WindingSegment seg in wdg.Segments)
                 {
-                    R.SetSubMatrix(start, start, wdg.Calc_Rmatrix(f));
-                    start += wdg.num_turns;
+                    R.SetSubMatrix(start, start, seg.Geometry.Calc_Rmatrix(f));
+                    start += seg.Geometry.NumConductors;
                 }
             }
             return R;

@@ -105,12 +105,9 @@ namespace TfmrLib
             //});
 
             var V_response = new List<Complex[]>();
-            foreach (var wdg in Tfmr.Windings)
+            for (int cond = 0; cond < Tfmr.NumConductors; cond++)
             {
-                for (int t = 0; t < wdg.num_turns; t++)
-                {
-                    V_response.Add(new Complex[NumSteps]);
-                }
+                V_response.Add(new Complex[NumSteps]);
             }
 
             // Enumerate through raw turn responses (vector of Complex Gain for each turn) at each frequency
@@ -120,13 +117,18 @@ namespace TfmrLib
                 // Enumerate through each winding
                 foreach (var wdg in Tfmr.Windings)
                 {
-                    // Enumerate each turn
-                    for (int t = 0; t < (wdg.num_turns - 1); t++)
+                    foreach (var seg in wdg.Segments)
                     {
-                        //Translate to dB
-                        V_response[offset + t][f] = V_turn[f][offset + t];
+                        var seggeo = seg.Geometry;
+                        for (int t = 0; t < seggeo.NumTurns * seggeo.NumParallelConductors; t++)
+                        {
+                            //Translate to dB
+                            V_response[offset + t][f] = V_turn[f][offset + t];
+
+                        }
+                        offset += seggeo.NumTurns*seggeo.NumParallelConductors;
                     }
-                    offset += wdg.num_turns;
+                    
                 }
             }
 
