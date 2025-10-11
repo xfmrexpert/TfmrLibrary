@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GeomLibrary\GeometryLib\GeometryLib.csproj" />
+    <ProjectReference Include="..\..\..\GeomLibrary\GeometryLib\GeometryLib.csproj" />
   </ItemGroup>
 
 </Project>
