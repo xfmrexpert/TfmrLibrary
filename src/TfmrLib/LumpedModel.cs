@@ -72,21 +72,24 @@ namespace TfmrLib
             // rows = branches
             // columns = nodes
             int start_turn = 0;
-            foreach (var wdg in Tfmr.Windings)
-            {
-                foreach (var seg in wdg.Segments)
-                {
-                    // t is branch number
-                    // first node in branch 
-                    Q[start_turn + t, start_turn + t] = 1.0;
-                    if (t != (wdg.num_turns - 1))
-                    {
-                        Q[start_turn + t, start_turn + t + 1] = -1.0;
-                    }
-                }
-                start_turn += wdg.num_turns;
-            }
-            
+
+            // BIG TODO: Refactor for multiple windings with complex connections
+
+            // foreach (var wdg in Tfmr.Windings)
+            // {
+            //     foreach (var seg in wdg.Segments)
+            //     {
+            //         // t is branch number
+            //         // first node in branch 
+            //         Q[start_turn + t, start_turn + t] = 1.0;
+            //         if (t != (wdg.num_turns - 1))
+            //         {
+            //             Q[start_turn + t, start_turn + t + 1] = -1.0;
+            //         }
+            //     }
+            //     start_turn += wdg.num_turns;
+            // }
+
             return Q;
         }
 

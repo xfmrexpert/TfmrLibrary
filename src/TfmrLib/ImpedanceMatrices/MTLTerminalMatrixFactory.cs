@@ -1,4 +1,7 @@
+using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
+using System.Numerics;
 
 namespace TfmrLib
 {
@@ -9,6 +12,11 @@ namespace TfmrLib
 
     public static class MTLTerminalMatrixFactory
     {
+        static private MatrixBuilder<double> M_d = Matrix_d.Build;
+        static private MatrixBuilder<Complex> M_c = Matrix_c.Build;
+        static private VectorBuilder<double> V_d = Vector_d.Build;
+        static private VectorBuilder<Complex> V_c = Vector_c.Build;
+
         // I believe the way I interpret HA and HB is that they form a series of constraints that, for example,
         // set the voltage at the end of one turn to the voltage at the start of the next turn. 
         //
@@ -37,24 +45,27 @@ namespace TfmrLib
             // Matrix_d HA2 = HA21.Append(HA22);
             // return HA1.Stack(HA2);
             var seg_geo = seg.Geometry;
-            Matrix_d HA11 = Matrix_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors); // Start with all 0s
-            Matrix_d HA12 = Matrix_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            Matrix_d HA11 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors); // Start with all 0s
+            Matrix_d HA12 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
             int row = 1;
             for (int turn = 1; turn < seg_geo.NumTurns; turn++) // Start at end of first turn
             {
                 for (int strand = 0; strand < seg_geo.NumParallelConductors; strand++)
                 {
                     // For each strand, we want to tie the end of [turn] to the start of [turn+1]
-                    var cdr_idx = seg_geo.LogicalToConductorIndex[new LogicalConductorIndex(turn, strand)];
-                    var cdr_idx_next = seg_geo.LogicalToConductorIndex[new LogicalConductorIndex(turn + 1, strand)];
+                    var cdr_idx = seg_geo.GetConductorIndex(turn, strand);
+                    var cdr_idx_next = seg_geo.GetConductorIndex(turn + 1, strand);
                     HA11[row, cdr_idx] = 1;
                     HA12[row, cdr_idx_next] = -1;
                     row++;
                 }
             }
+            Matrix_d HA1 = HA11.Append(HA12);
+            // FIXME: Build the rest you twat
+            return HA1;
         }
 
-        public Matrix_c CalcHB(Winding wdg, double f)
+        public static Matrix_c CalcHB(Winding wdg, double f)
         {
             Matrix_c HB11 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
             HB11[0, 0] = wdg.Rs+Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ls; //Source impedance

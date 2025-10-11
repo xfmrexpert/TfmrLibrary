@@ -100,11 +100,18 @@ namespace TfmrLib
 
         public abstract Vector<double> GetTurnLengths_m();
 
-        public (double RadialPosition_mm, double AxialPosition_mm) GetConductorPosition(int turnIndex, int strandIndex)
+        public int GetConductorIndex(int turnIndex, int strandIndex)
         {
             var logicalIndex = new LogicalConductorIndex(turnIndex, strandIndex);
             if (!LogicalToConductorIndex.TryGetValue(logicalIndex, out int conductorIndex))
                 throw new ArgumentOutOfRangeException(nameof(logicalIndex), "Logical conductor index not found.");
+
+            return conductorIndex;
+        }
+
+        public (double RadialPosition_mm, double AxialPosition_mm) GetConductorPosition(int turnIndex, int strandIndex)
+        {
+            var conductorIndex = GetConductorIndex(turnIndex, strandIndex);
 
             return GetConductorPosition(conductorIndex);
         }
