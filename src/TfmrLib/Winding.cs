@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
 using GeometryLib;
+using System.ComponentModel;
 
 namespace TfmrLib
 {
@@ -14,24 +15,14 @@ namespace TfmrLib
     {
         public int Id { get; set; }
         public string Label { get; set; } // HV, LV, RW, etc.
+
+        public ConnectionNode StartNode { get; set; }
+        public ConnectionNode EndNode { get; set; }
         
         public Transformer ParentTransformer { get; set; }
 
         private readonly ObservableCollection<WindingSegment> _segments = new();
         public IList<WindingSegment> Segments => _segments;
-
-        public double eps_paper; //3.5;
-        public double rho_c; //ohm-m;
-
-        public double dist_wdg_tank_right;
-        public double dist_wdg_tank_top;
-        public double dist_wdg_tank_bottom;
-        
-        public double Rs;
-        public double Rl;
-        public double Ls;
-        public double Ll;
-        public double ResistanceFudgeFactor = 1.0;
 
         public int NumTurns
         {
@@ -62,11 +53,6 @@ namespace TfmrLib
 
         public Winding()
         {
-            Rs = 0.0;
-            Rl = 0.0;
-            Ls = 0.0;
-            Ll = 0.0;
-
             // Subscribe to collection changes to automatically set ParentWinding
             _segments.CollectionChanged += (sender, e) =>
             {
@@ -98,6 +84,35 @@ namespace TfmrLib
         {
             segment.ParentWinding = this;
             _segments.Add(segment);
+        }
+
+        public void AddSeriesSegments(int n = 1)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                var seg = new WindingSegment();
+                seg.StartNode = StartNode;
+                seg.EndNode = EndNode;
+                AddSegment(seg);
+            }
+        }
+        
+        public void AddParallelSegments(int n = 1)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                var seg = new WindingSegment();
+                seg.StartNode = StartNode;
+                if (i < n - 1)
+                {
+                    var int_node = new ConnectionNode();
+                }
+                else
+                {
+                    seg.EndNode = EndNode;
+                }
+                AddSegment(seg);
+            }
         }
     }
 }
