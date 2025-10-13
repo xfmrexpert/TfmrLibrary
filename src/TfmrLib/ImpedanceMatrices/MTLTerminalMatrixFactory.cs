@@ -47,16 +47,17 @@ namespace TfmrLib
             var seg_geo = seg.Geometry;
             Matrix_d HA11 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors); // Start with all 0s
             Matrix_d HA12 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            HA11[0, 0] = 1;
             int row = 1;
-            for (int turn = 1; turn < seg_geo.NumTurns; turn++) // Start at end of first turn
+            for (int turn = 0; turn < seg_geo.NumTurns - 1; turn++) // Start at end of first turn
             {
                 for (int strand = 0; strand < seg_geo.NumParallelConductors; strand++)
                 {
                     // For each strand, we want to tie the end of [turn] to the start of [turn+1]
                     var cdr_idx = seg_geo.GetConductorIndex(turn, strand);
                     var cdr_idx_next = seg_geo.GetConductorIndex(turn + 1, strand);
-                    HA11[row, cdr_idx] = 1;
-                    HA12[row, cdr_idx_next] = -1;
+                    HA11[row, cdr_idx_next] = 1;
+                    HA12[row, cdr_idx] = -1;
                     row++;
                 }
             }

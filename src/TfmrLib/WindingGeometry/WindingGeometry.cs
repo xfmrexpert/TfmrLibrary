@@ -102,6 +102,10 @@ namespace TfmrLib
 
         public int GetConductorIndex(int turnIndex, int strandIndex)
         {
+            if (ConductorIndexToLogical is null)
+            {
+                ComputeConductorLocations();
+            }
             var logicalIndex = new LogicalConductorIndex(turnIndex, strandIndex);
             if (!LogicalToConductorIndex.TryGetValue(logicalIndex, out int conductorIndex))
                 throw new ArgumentOutOfRangeException(nameof(logicalIndex), "Logical conductor index not found.");
