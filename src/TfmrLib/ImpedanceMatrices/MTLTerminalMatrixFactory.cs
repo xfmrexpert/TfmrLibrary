@@ -30,7 +30,8 @@ namespace TfmrLib
         // more parallel paths of connected turns.  We assume that the parallel conductors making up a turn are only 
         // connected electrically at the start and end of the segment
 
-        public static Matrix_d CalcHA(WindingSegment seg)
+        // In HA and HB, the column corresponds to the conductor index (x2)
+        public static Matrix_d CalcHAForSeg(WindingSegment seg)
         {
             // Matrix_d HA11 = M_d.DenseIdentity(wdg.NumConductors); // Identity matrix that corresponds to V(0)
             // Matrix_d HA21 = M_d.Dense(wdg.NumConductors, wdg.NumConductors); // Zero matrix
@@ -66,21 +67,56 @@ namespace TfmrLib
             return HA1;
         }
 
-        public static Matrix_c CalcHB(Winding wdg, double f)
+        public static Matrix_c CalcHBForSeg(WindingSegment seg, double f)
         {
-            Matrix_c HB11 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
-            HB11[0, 0] = wdg.Rs+Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ls; //Source impedance
-            Matrix_c HB12 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
-            Matrix_c HB21 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
-            for (int t = 0; t < (wdg.NumConductors - 1); t++)
+            var seg_geo = seg.Geometry;
+            Matrix_c HB11 = M_c.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            HB11[0, 0] = 0; //wdg.Rs + Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ls; //Source impedance
+            Matrix_c HB12 = M_c.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            Matrix_c HB21 = M_c.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            for (int t = 0; t < (seg_geo.NumConductors - 1); t++)
             {
                 HB21[t, t + 1] = 1.0;
             }
-            Matrix_c HB22 = -1.0 * M_c.DenseIdentity(wdg.NumConductors);
-            HB22[wdg.NumConductors - 1, wdg.NumConductors - 1] = wdg.Rl + Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ll; //Impedance to ground
+            Matrix_c HB22 = -1.0 * M_c.DenseIdentity(seg_geo.NumConductors);
+            HB22[seg_geo.NumConductors - 1, seg_geo.NumConductors - 1] = 0; //wdg.Rl + Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ll; //Impedance to ground
             Matrix_c HB1 = HB11.Append(HB12);
             Matrix_c HB2 = HB21.Append(HB22);
             Matrix_c HB = HB1.Stack(HB2);
+            return HB;
+        }
+
+        public static Matrix_d CalcHA(Transformer tfmr)
+        {
+            Matrix_d HA = M_d.Dense(2 * tfmr.NumConductors, 2 * tfmr.NumConductors);
+            int startIdx = 0;
+            foreach (var wdg in tfmr.Windings)
+            {
+                foreach (var seg in wdg.Segments)
+                {
+                    var HA_seg = CalcHAForSeg(seg);
+                    HA.SetSubMatrix(startIdx, startIdx, HA_seg);
+                    startIdx += HA_seg.ColumnCount;
+                }
+            }
+
+            return HA;
+        }
+        
+        public static Matrix_c CalcHB(Transformer tfmr, double f)
+        {
+            Matrix_c HB = M_c.Dense(2 * tfmr.NumConductors, 2 * tfmr.NumConductors);
+            int startIdx = 0;
+            foreach (var wdg in tfmr.Windings)
+            {
+                foreach (var seg in wdg.Segments)
+                {
+                    var HB_seg = CalcHBForSeg(seg, f);
+                    HB.SetSubMatrix(startIdx, startIdx, HB_seg);
+                    startIdx += HB_seg.ColumnCount;
+                }
+            }
+
             return HB;
         }
 

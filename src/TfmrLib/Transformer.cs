@@ -25,6 +25,13 @@ namespace TfmrLib
 
         public TagManager TagManager { get; }   // Scoped to this transformer
 
+        public List<ConnectionNode> Nodes { get; set; } = [];
+
+        public void AddNode(ConnectionNode node)
+        {
+            Nodes.Append(node);
+        }
+
         private readonly ObservableCollection<Winding> _windings = new();
         public IList<Winding> Windings => _windings;
 

@@ -155,6 +155,10 @@ namespace TfmrLib
 
         public static Transformer TB904_ThreePhase()
         {
+            var terminal_TV1 = new Terminal();
+            var terminal_TV2 = new Terminal();
+            var terminal_LV1 = new Terminal();
+            var terminal_LV2 = new Terminal();
             var transformer = new Transformer
             {
                 Core = new Core
@@ -171,11 +175,15 @@ namespace TfmrLib
                     new Winding
                     {
                         Label = "TV",
+                        StartNode = terminal_TV1,
+                        EndNode = terminal_TV2,
                         Segments =
                         {
                             new WindingSegment
                             {
                                 Label = "TV Main",
+                                StartNode = terminal_TV1,
+                                EndNode = terminal_TV2,
                                 Geometry = new HelicalWindingGeometry
                                 {
                                     ConductorType = new CTCConductor

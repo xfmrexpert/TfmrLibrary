@@ -239,6 +239,10 @@ namespace TfmrLib
 
         public override Vector_d GetTurnLengths_m()
         {
+            if (_conductorLocations is null)
+            {
+                ComputeConductorLocations();
+            }
             int num_cond = NumParallelConductors * NumTurns;
             var L_vector = Vector_d.Build.Dense(num_cond);
             for (int t = 0; t < num_cond; t++)

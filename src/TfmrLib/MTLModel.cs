@@ -34,76 +34,76 @@ namespace TfmrLib
         // HB is lower right-hand quadrant of the LHS matric
         // HA and HB are "terminal" constraints dictated by winding type (terminal here meaning the
         // terminations of each winding turn when viewed as parallel transmission lines)
-        public Matrix_d CalcHAforWdg(Winding wdg)   
-        {
-            Matrix_d HA11 = M_d.DenseIdentity(wdg.NumConductors);
-            Matrix_d HA21 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
-            Matrix_d HA12 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
-            for (int t = 0; t < (wdg.NumConductors - 1); t++)
-            {
-                HA12[t + 1, t] = -1.0;
-            }
-            Matrix_d HA22 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
-            HA22[wdg.NumConductors - 1, wdg.NumConductors - 1] = 1.0;
-            Matrix_d HA1 = HA11.Append(HA12);
-            Matrix_d HA2 = HA21.Append(HA22);
-            return HA1.Stack(HA2);
-        }
+        // public Matrix_d CalcHAforWdg(Winding wdg)   
+        // {
+        //     Matrix_d HA11 = M_d.DenseIdentity(wdg.NumConductors);
+        //     Matrix_d HA21 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
+        //     Matrix_d HA12 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
+        //     for (int t = 0; t < (wdg.NumConductors - 1); t++)
+        //     {
+        //         HA12[t + 1, t] = -1.0;
+        //     }
+        //     Matrix_d HA22 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
+        //     HA22[wdg.NumConductors - 1, wdg.NumConductors - 1] = 1.0;
+        //     Matrix_d HA1 = HA11.Append(HA12);
+        //     Matrix_d HA2 = HA21.Append(HA22);
+        //     return HA1.Stack(HA2);
+        // }
 
-        public Matrix_d CalcHA()
-        {
-            Matrix_d HA = M_d.Dense(2*total_turns, 2*total_turns);
-            int start = 0;
-            foreach (Winding wdg in Tfmr.Windings)
-            {
-                if (wdg.NumConductors > 0)
-                {
-                    Matrix_d HA_wdg = CalcHAforWdg(wdg);
-                    HA.SetSubMatrix(start, start, HA_wdg);
-                    start += wdg.NumConductors;
-                }
-            }
-            return HA;
-        }
+        // public Matrix_d CalcHA()
+        // {
+        //     Matrix_d HA = M_d.Dense(2*total_turns, 2*total_turns);
+        //     int start = 0;
+        //     foreach (Winding wdg in Tfmr.Windings)
+        //     {
+        //         if (wdg.NumConductors > 0)
+        //         {
+        //             Matrix_d HA_wdg = CalcHAforWdg(wdg);
+        //             HA.SetSubMatrix(start, start, HA_wdg);
+        //             start += wdg.NumConductors;
+        //         }
+        //     }
+        //     return HA;
+        // }
 
-        public Matrix_c CalcHBforWdg(Winding wdg, double f)
-        {
-            Matrix_c HB11 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
-            HB11[0, 0] = wdg.Rs+Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ls; //Source impedance
-            Matrix_c HB12 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
-            Matrix_c HB21 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
-            for (int t = 0; t < (wdg.NumConductors - 1); t++)
-            {
-                HB21[t, t + 1] = 1.0;
-            }
-            Matrix_c HB22 = -1.0 * M_c.DenseIdentity(wdg.NumConductors);
-            HB22[wdg.NumConductors - 1, wdg.NumConductors - 1] = wdg.Rl + Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ll; //Impedance to ground
-            Matrix_c HB1 = HB11.Append(HB12);
-            Matrix_c HB2 = HB21.Append(HB22);
-            Matrix_c HB = HB1.Stack(HB2);
-            return HB;
-        }
+        // public Matrix_c CalcHBforWdg(Winding wdg, double f)
+        // {
+        //     Matrix_c HB11 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
+        //     HB11[0, 0] = wdg.Rs+Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ls; //Source impedance
+        //     Matrix_c HB12 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
+        //     Matrix_c HB21 = M_c.Dense(wdg.NumConductors, wdg.NumConductors);
+        //     for (int t = 0; t < (wdg.NumConductors - 1); t++)
+        //     {
+        //         HB21[t, t + 1] = 1.0;
+        //     }
+        //     Matrix_c HB22 = -1.0 * M_c.DenseIdentity(wdg.NumConductors);
+        //     HB22[wdg.NumConductors - 1, wdg.NumConductors - 1] = wdg.Rl + Complex.ImaginaryOne * 2 * Math.PI * f * wdg.Ll; //Impedance to ground
+        //     Matrix_c HB1 = HB11.Append(HB12);
+        //     Matrix_c HB2 = HB21.Append(HB22);
+        //     Matrix_c HB = HB1.Stack(HB2);
+        //     return HB;
+        // }
 
-        public Matrix_c CalcHB(double f)
-        {
-            Matrix_c HB = M_c.Dense(2 * total_turns, 2 * total_turns);
-            int start = 0;
-            foreach (Winding wdg in Tfmr.Windings)
-            {
-                if (wdg.NumTurns > 0)
-                {
-                    Matrix_c HB_wdg = CalcHBforWdg(wdg, f);
-                    HB.SetSubMatrix(start, start, HB_wdg);
-                    start += wdg.NumConductors;
-                }
-            }
-            return HB;
-        }
+        // public Matrix_c CalcHB(double f)
+        // {
+        //     Matrix_c HB = M_c.Dense(2 * total_turns, 2 * total_turns);
+        //     int start = 0;
+        //     foreach (Winding wdg in Tfmr.Windings)
+        //     {
+        //         if (wdg.NumTurns > 0)
+        //         {
+        //             Matrix_c HB_wdg = CalcHBforWdg(wdg, f);
+        //             HB.SetSubMatrix(start, start, HB_wdg);
+        //             start += wdg.NumConductors;
+        //         }
+        //     }
+        //     return HB;
+        // }
 
         // Return value should be complex vector of voltage response at each turn
         public override (Complex Z_term, Vector_c V_EndOfTurn) CalcResponseAtFreq(double f)
         {
-            Matrix_c HB = CalcHB(f);
+            Matrix_c HB = MTLTerminalMatrixFactory.CalcHB(Tfmr, f);
 
             Matrix_c B2 = HA.ToComplex().Append(HB);
 
@@ -163,7 +163,7 @@ namespace TfmrLib
                 }
             }    
             
-            HA = CalcHA();
+            HA = MTLTerminalMatrixFactory.CalcHA(Tfmr);
         }
     }
 }

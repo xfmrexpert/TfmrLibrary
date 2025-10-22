@@ -36,7 +36,7 @@ namespace TfmrLib
             MinFreq = minFreq;
             MaxFreq = maxFreq;
             NumSteps = numSteps;
-            Control.UseNativeMKL();
+            //Control.UseNativeMKL();
         }
 
         protected abstract void Initialize();
