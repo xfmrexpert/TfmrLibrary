@@ -116,22 +116,10 @@ namespace TfmrLib
             // Enumerate through raw turn responses (vector of Complex Gain for each turn) at each frequency
             for (int f = 0; f < NumSteps; f++)
             {
-                int offset = 0;
-                // Enumerate through each winding
-                foreach (var wdg in Tfmr.Windings)
+                for (int cdr_idx = 0; cdr_idx < Tfmr.NumConductors; cdr_idx++)
                 {
-                    foreach (var seg in wdg.Segments)
-                    {
-                        var seggeo = seg.Geometry;
-                        for (int t = 0; t < seggeo.NumTurns * seggeo.NumParallelConductors; t++)
-                        {
-                            //Translate to dB
-                            V_response[offset + t][f] = V_turn[f][offset + t];
-
-                        }
-                        offset += seggeo.NumTurns*seggeo.NumParallelConductors;
-                    }
-                    
+                    //Translate to dB
+                    V_response[cdr_idx][f] = V_turn[f][cdr_idx];                    
                 }
             }
 

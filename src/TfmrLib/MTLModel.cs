@@ -113,31 +113,31 @@ namespace TfmrLib
             //R_f.DisplayMatrixAsTable();
             // A = [           0              -Gamma*(R+j*2*pi*f*L)]
             //     [ -Gamma*(G+j*2*pi*f*C)                0        ]
-            Matrix_c A11 = M_c.Dense(total_turns, total_turns);
+            Matrix_c A11 = M_c.Dense(total_cdrs, total_cdrs);
             Matrix_c A12 = -Gamma.ToComplex() * (R_f.ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * L.ToComplex());
             Matrix_c A21 = -Gamma.ToComplex() * ((Math.Tan(Tfmr.ins_loss_factor) * 2d * Math.PI * f * C).ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * C.ToComplex());
-            Matrix_c A22 = M_c.Dense(total_turns, total_turns);
+            Matrix_c A22 = M_c.Dense(total_cdrs, total_cdrs);
             //Matrix_c A1 = M_c.Dense(Wdg.num_turns, Wdg.num_turns).Append(A12);
             //Matrix_c A2 = A21.Append(M_c.Dense(Wdg.num_turns, Wdg.num_turns));
             //Gamma.DisplayMatrixAsTable();
             Matrix_c A = M_c.DenseOfMatrixArray(new Matrix_c[,] { { A11, A12 }, { A21, A22 } });
             //A.DisplayMatrixAsTable();
             Matrix_c Phi = A.Exponential();
-            Matrix_c Phi1 = Phi.SubMatrix(0, Phi.RowCount, 0, total_turns); //Phi[:,:n]
-            Matrix_c Phi2 = Phi.SubMatrix(0, Phi.RowCount, total_turns, Phi.ColumnCount - total_turns); //Phi[:, n:]
-            Matrix_c B11 = Phi1.Append((-1.0 * M_c.DenseIdentity(total_turns)).Stack(M_c.Dense(total_turns, total_turns)));
-            Matrix_c B12 = Phi2.Append(M_c.Dense(total_turns, total_turns).Stack(-1.0 * M_c.DenseIdentity(total_turns)));
+            Matrix_c Phi1 = Phi.SubMatrix(0, Phi.RowCount, 0, total_cdrs); //Phi[:,:n]
+            Matrix_c Phi2 = Phi.SubMatrix(0, Phi.RowCount, total_cdrs, Phi.ColumnCount - total_cdrs); //Phi[:, n:]
+            Matrix_c B11 = Phi1.Append((-1.0 * M_c.DenseIdentity(total_cdrs)).Stack(M_c.Dense(total_cdrs, total_cdrs)));
+            Matrix_c B12 = Phi2.Append(M_c.Dense(total_cdrs, total_cdrs).Stack(-1.0 * M_c.DenseIdentity(total_cdrs)));
             Matrix_c B1 = B11.Append(B12);
             Matrix_c B = B1.Stack(B2);
             // v = [ V_turn_start ]
             //     [ V_turn_end   ]
             //     [ I_turn_start ]
             //     [ I_turn_end   ]
-            Vector_c v = V_c.Dense(4 * total_turns);
-            v[2 * total_turns] = 1.0; // Set applied voltage
+            Vector_c v = V_c.Dense(4 * total_cdrs);
+            v[2 * total_cdrs] = 1.0; // Set applied voltage
             var x = B.Solve(v);
-            var turn_end_voltages = x.SubVector(total_turns, 2* total_turns); // This should be grabbed the voltages at the _end_ of each turn
-            return (Complex.One / x[2* total_turns], turn_end_voltages); //Divide by terminal voltage to get gain
+            var turn_end_voltages = x.SubVector(total_cdrs, 2 * total_cdrs); // This should be grabbed the voltages at the _end_ of each turn
+            return (Complex.One / x[2 * total_cdrs], turn_end_voltages); //Divide by terminal voltage to get gain
         }
 
         protected override void Initialize()
