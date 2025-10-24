@@ -232,7 +232,7 @@ namespace TfmrLib
             Complex eta = Complex.Sqrt(2d * Math.PI * f * Constants.mu_0 * sigma_c * Complex.ImaginaryOne) * ConductorType.BareWidth_mm / 2d;
             double R_skin = (1 / (sigma_c * ConductorType.BareHeight_mm * ConductorType.BareWidth_mm) * eta * Complex.Cosh(eta) / Complex.Sinh(eta)).Real;
             //Console.WriteLine($"R_skin: {R_skin}");
-            //R_skin = 0;
+            R_skin = 0;
             var R_f = R + Matrix<double>.Build.DenseIdentity(num_cond, num_cond) * R_skin;
             return R_f;
         }

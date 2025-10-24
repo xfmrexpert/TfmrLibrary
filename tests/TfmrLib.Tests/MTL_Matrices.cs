@@ -119,8 +119,8 @@ public class MTL_Matrices
     public void HA_Test()
     {
         var tfmr = TestTfmr();
-        var HA_disc = MTLTerminalMatrixFactory.CalcHA(tfmr.Windings[0].Segments[0]);
-        var HA_interleaved = MTLTerminalMatrixFactory.CalcHA(tfmr.Windings[1].Segments[0]);
+        var HA_disc = MTLTerminalMatrixFactory.CalcHAForSeg(tfmr.Windings[0].Segments[0]);
+        var HA_interleaved = MTLTerminalMatrixFactory.CalcHAForSeg(tfmr.Windings[1].Segments[0]);
         Console.WriteLine("Disc Winding:");
         PrintMatrix(HA_disc);
         Console.WriteLine("Interleaved Disc Winding:");

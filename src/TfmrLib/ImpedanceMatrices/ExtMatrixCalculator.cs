@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
+using MatrixExponential;
 
 namespace TfmrLib
 {
@@ -132,7 +133,9 @@ namespace TfmrLib
             {
                 foreach (WindingSegment seg in wdg.Segments)
                 {
-                    R.SetSubMatrix(start, start, seg.Geometry.Calc_Rmatrix(f));
+                    var R_seg = seg.Geometry.Calc_Rmatrix(f);
+                    //R_seg.DisplayMatrixAsTable();
+                    R.SetSubMatrix(start, start, R_seg);
                     start += seg.Geometry.NumConductors;
                 }
             }

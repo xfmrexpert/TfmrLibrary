@@ -4,15 +4,111 @@ using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using MathNet.Numerics;
 using System.Numerics;
+using System.Diagnostics;
+using System.Text;
 
 namespace MatrixExponential
 {
     public static class Extensions
     {
+        public static void DisplayMatrixAsTable(this Matrix<double> matrix)
+        {
+            StringBuilder html = new StringBuilder();
+            html.AppendLine("<html><head><title>Matrix Display</title></head><body>");
+            html.AppendLine("<table border='1'>");
+
+            for (int i = 0; i < matrix.RowCount; i++)
+            {
+                html.AppendLine("<tr>");
+                for (int j = 0; j < matrix.ColumnCount; j++)
+                {
+                    html.AppendFormat("<td>{0}</td>", matrix[i, j]);
+                }
+                html.AppendLine("</tr>");
+            }
+
+            html.AppendLine("</table>");
+            html.AppendLine("</body></html>");
+
+            // Generate a unique filename in the temporary directory
+            string fileName = Path.Combine(Path.GetTempPath(), $"MatrixDisplay_{Guid.NewGuid()}.html");
+            File.WriteAllText(fileName, html.ToString());
+
+            // Open the HTML file in the default web browser
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                UseShellExecute = true
+            });
+        }
+
+        public static void DisplayMatrixAsTable(this Matrix<Complex> matrix)
+        {
+            StringBuilder html = new StringBuilder();
+            html.AppendLine("<html><head><title>Matrix Display</title></head><body>");
+            html.AppendLine("<table border='1'>");
+
+            for (int i = 0; i < matrix.RowCount; i++)
+            {
+                html.AppendLine("<tr>");
+                for (int j = 0; j < matrix.ColumnCount; j++)
+                {
+                    html.AppendFormat("<td>{0}</td>", matrix[i, j]);
+                }
+                html.AppendLine("</tr>");
+            }
+
+            html.AppendLine("</table>");
+            html.AppendLine("</body></html>");
+
+            // Generate a unique filename in the temporary directory
+            string fileName = Path.Combine(Path.GetTempPath(), $"MatrixDisplay_{Guid.NewGuid()}.html");
+            File.WriteAllText(fileName, html.ToString());
+
+            // Open the HTML file in the default web browser
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                UseShellExecute = true
+            });
+        }
+
+        public static void PrintMatrix(this Matrix<Complex> matrix)
+        {
+            int rows = matrix.RowCount;
+            int cols = matrix.ColumnCount;
+            for (int i = 0; i < rows; i++)
+            {
+                for (int j = 0; j < cols; j++)
+                {
+                    Console.Write($"{matrix[i, j]} ");
+                }
+                Console.WriteLine();
+            }
+        }
+
+        public static void PrintMatrix(this Matrix<double> matrix)
+        {
+            int rows = matrix.RowCount;
+            int cols = matrix.ColumnCount;
+            for (int i = 0; i < rows; i++)
+            {
+                for (int j = 0; j < cols; j++)
+                {
+                    Console.Write($"{matrix[i, j]:F4} ");
+                }
+                Console.WriteLine();
+            }
+        }
+    
         public static Matrix<Complex> Exponential(this Matrix<Complex> m)
         {
+            //PrintMatrix(m);
             if (m.RowCount != m.ColumnCount)
                 throw new ArgumentException("Matrix should be square");
+
+            if (m.RowCount == 0) 
+                throw new ArgumentException("Zero-size matrix.");
 
             Matrix<Complex> exp_m = null;
 
@@ -73,6 +169,10 @@ namespace MatrixExponential
                         if (j <= q)
                             D = D + Math.Pow(-1.0, j) * SpecialFunctions.Factorial(p + q - j) * SpecialFunctions.Factorial(q) / SpecialFunctions.Factorial(p + q) / SpecialFunctions.Factorial(j) / SpecialFunctions.Factorial(q - j) * m_pow_j;
                     }
+                    if (D.RowCount != D.ColumnCount) throw new ArgumentException("Matrix exponential requires square matrix.");
+                    if (D.RowCount == 0) throw new ArgumentException("Zero-size matrix.");
+                    
+                    //Console.WriteLine($"[MKL] m: {D.GetType().Name}  {D.RowCount}x{D.ColumnCount}");
 
                     // calculate inv(D)*N with LU decomposition
                     exp_m = D.LU().Solve(N);

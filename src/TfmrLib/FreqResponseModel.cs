@@ -8,6 +8,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
+using Microsoft.VisualBasic;
 
 namespace TfmrLib
 {
@@ -36,7 +37,9 @@ namespace TfmrLib
             MinFreq = minFreq;
             MaxFreq = maxFreq;
             NumSteps = numSteps;
-            //Control.UseNativeMKL();
+            Control.UseNativeMKL();
+            //Control.UseNativeOpenBLAS();
+            Control.MaxDegreeOfParallelism = Environment.ProcessorCount;
         }
 
         protected abstract void Initialize();

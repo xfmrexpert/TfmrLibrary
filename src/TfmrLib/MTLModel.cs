@@ -109,7 +109,8 @@ namespace TfmrLib
 
             Matrix_d L = MatrixCalculator.Calc_Lmatrix(Tfmr, f);
             Matrix_d R_f = MatrixCalculator.Calc_Rmatrix(Tfmr, f);
-
+            //L.DisplayMatrixAsTable();
+            //R_f.DisplayMatrixAsTable();
             // A = [           0              -Gamma*(R+j*2*pi*f*L)]
             //     [ -Gamma*(G+j*2*pi*f*C)                0        ]
             Matrix_c A11 = M_c.Dense(total_turns, total_turns);
@@ -118,7 +119,9 @@ namespace TfmrLib
             Matrix_c A22 = M_c.Dense(total_turns, total_turns);
             //Matrix_c A1 = M_c.Dense(Wdg.num_turns, Wdg.num_turns).Append(A12);
             //Matrix_c A2 = A21.Append(M_c.Dense(Wdg.num_turns, Wdg.num_turns));
+            //Gamma.DisplayMatrixAsTable();
             Matrix_c A = M_c.DenseOfMatrixArray(new Matrix_c[,] { { A11, A12 }, { A21, A22 } });
+            //A.DisplayMatrixAsTable();
             Matrix_c Phi = A.Exponential();
             Matrix_c Phi1 = Phi.SubMatrix(0, Phi.RowCount, 0, total_turns); //Phi[:,:n]
             Matrix_c Phi2 = Phi.SubMatrix(0, Phi.RowCount, total_turns, Phi.ColumnCount - total_turns); //Phi[:, n:]
