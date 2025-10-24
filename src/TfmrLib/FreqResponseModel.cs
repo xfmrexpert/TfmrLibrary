@@ -53,6 +53,7 @@ namespace TfmrLib
         {
             Initialize();
 
+            //Console.WriteLine($"NumSteps: {NumSteps}");
             // Create vector of frequencies
             var freqs = Generate.LogSpaced(NumSteps, Math.Log10(MinFreq), Math.Log10(MaxFreq));
             int totalSteps = freqs.Count();
@@ -76,6 +77,7 @@ namespace TfmrLib
             for (int i = 0; i < totalSteps; i++)
             {
                 var f = freqs[i];
+                //Console.WriteLine($"Frequency: {f}");
                 // Calculate the response at frequency 'f'
                 var (Z_term, V_endofturn_at_freq) = CalcResponseAtFreq(f);
 
@@ -112,14 +114,15 @@ namespace TfmrLib
             {
                 V_response.Add(new Complex[NumSteps]);
             }
-
+            
             // Enumerate through raw turn responses (vector of Complex Gain for each turn) at each frequency
             for (int f = 0; f < NumSteps; f++)
             {
                 for (int cdr_idx = 0; cdr_idx < Tfmr.NumConductors; cdr_idx++)
                 {
                     //Translate to dB
-                    V_response[cdr_idx][f] = V_turn[f][cdr_idx];                    
+                    V_response[cdr_idx][f] = V_turn[f][cdr_idx];
+                    //Console.WriteLine($"Freq: {f}, Cdr {cdr_idx}: {V_turn[f][cdr_idx]}");                  
                 }
             }
 

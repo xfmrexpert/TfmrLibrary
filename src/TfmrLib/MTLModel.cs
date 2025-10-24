@@ -103,12 +103,21 @@ namespace TfmrLib
         // Return value should be complex vector of voltage response at each turn
         public override (Complex Z_term, Vector_c V_EndOfTurn) CalcResponseAtFreq(double f)
         {
+            //Console.WriteLine($"MTLModel: Calculating at frequency {f}");
+            //Console.WriteLine($"Tfmr.NumConductors: {Tfmr.NumConductors}");
+            //Console.WriteLine($"HA: {HA.RowCount} x {HA.ColumnCount}");
             Matrix_c HB = MTLTerminalMatrixFactory.CalcHB(Tfmr, f);
+            //Console.WriteLine($"HB: {HB.RowCount} x {HB.ColumnCount}");
+
+            //HA.DisplayMatrixAsTable();
+            //HB.DisplayMatrixAsTable();
 
             Matrix_c B2 = HA.ToComplex().Append(HB);
 
             Matrix_d L = MatrixCalculator.Calc_Lmatrix(Tfmr, f);
             Matrix_d R_f = MatrixCalculator.Calc_Rmatrix(Tfmr, f);
+            //Console.WriteLine($"L: {L.RowCount} x {L.ColumnCount}");
+            //Console.WriteLine($"C: {C.RowCount} x {C.ColumnCount}");
             //L.DisplayMatrixAsTable();
             //R_f.DisplayMatrixAsTable();
             // A = [           0              -Gamma*(R+j*2*pi*f*L)]
@@ -121,8 +130,11 @@ namespace TfmrLib
             //Matrix_c A2 = A21.Append(M_c.Dense(Wdg.num_turns, Wdg.num_turns));
             //Gamma.DisplayMatrixAsTable();
             Matrix_c A = M_c.DenseOfMatrixArray(new Matrix_c[,] { { A11, A12 }, { A21, A22 } });
+            //Console.WriteLine($"A: {A.RowCount} x {A.ColumnCount}");
             //A.DisplayMatrixAsTable();
             Matrix_c Phi = A.Exponential();
+            //Console.WriteLine($"Phi: {Phi.RowCount} x {Phi.ColumnCount}");
+            //Phi.DisplayMatrixAsTable();
             Matrix_c Phi1 = Phi.SubMatrix(0, Phi.RowCount, 0, total_cdrs); //Phi[:,:n]
             Matrix_c Phi2 = Phi.SubMatrix(0, Phi.RowCount, total_cdrs, Phi.ColumnCount - total_cdrs); //Phi[:, n:]
             Matrix_c B11 = Phi1.Append((-1.0 * M_c.DenseIdentity(total_cdrs)).Stack(M_c.Dense(total_cdrs, total_cdrs)));
@@ -135,7 +147,12 @@ namespace TfmrLib
             //     [ I_turn_end   ]
             Vector_c v = V_c.Dense(4 * total_cdrs);
             v[2 * total_cdrs] = 1.0; // Set applied voltage
+            //B.DisplayMatrixAsTable();
             var x = B.Solve(v);
+            // for (int i = 0; i < x.Count; i++)
+            // {
+            //     Console.WriteLine(x[i]);
+            // }
             var turn_end_voltages = x.SubVector(total_cdrs, 2 * total_cdrs); // This should be grabbed the voltages at the _end_ of each turn
             return (Complex.One / x[2 * total_cdrs], turn_end_voltages); //Divide by terminal voltage to get gain
         }

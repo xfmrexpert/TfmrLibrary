@@ -99,7 +99,7 @@ namespace TfmrLib
                     startIdx += HA_seg.ColumnCount;
                 }
             }
-
+            HA[HA.RowCount - 1, HA.ColumnCount - 1] = 1.0;
             return HA;
         }
         
