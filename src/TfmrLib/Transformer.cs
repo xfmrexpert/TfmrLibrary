@@ -23,7 +23,7 @@ namespace TfmrLib
             }
         }
 
-        public TagManager TagManager { get; }   // Scoped to this transformer
+        public TagManager TagManager { get; } = new();  // Scoped to this transformer
 
         public List<ConnectionNode> Nodes { get; set; } = [];
 
@@ -38,10 +38,9 @@ namespace TfmrLib
         public double eps_oil = 1.0; //2.2;
         public double ins_loss_factor = 0.03;
 
-        public Transformer(TagManager? tagManager = null)
+        public Transformer()
         {
             Core = new Core(this);
-            TagManager = tagManager ?? new TagManager();
 
             _windings.CollectionChanged += (sender, e) =>
             {

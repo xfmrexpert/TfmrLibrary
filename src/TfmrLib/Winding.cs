@@ -16,7 +16,18 @@ namespace TfmrLib
         public int Id { get; set; }
         public string Label { get; set; } // HV, LV, RW, etc.
 
-        public ConnectionNode StartNode { get; set; }
+        private ConnectionNode _startNode = new();
+        public ConnectionNode StartNode { 
+            get => _startNode;
+            set
+            {
+                if (!ReferenceEquals(_startNode, value))
+                {
+                    _startNode = value;
+                    _startNode.IncidentEntities.Add(this);
+                }
+            }
+        }
         public ConnectionNode EndNode { get; set; }
         
         public Transformer ParentTransformer { get; set; }
