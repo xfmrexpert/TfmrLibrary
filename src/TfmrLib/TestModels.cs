@@ -175,15 +175,11 @@ namespace TfmrLib
                     new Winding
                     {
                         Label = "TV",
-                        StartNode = terminal_TV1,
-                        EndNode = terminal_TV2,
                         Segments =
                         {
                             new WindingSegment
                             {
                                 Label = "TV Main",
-                                StartNode = terminal_TV1,
-                                EndNode = terminal_TV2,
                                 Geometry = new HelicalWindingGeometry
                                 {
                                     ConductorType = new CTCConductor

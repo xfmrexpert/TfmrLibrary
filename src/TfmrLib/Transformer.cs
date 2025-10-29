@@ -25,12 +25,10 @@ namespace TfmrLib
 
         public TagManager TagManager { get; } = new();  // Scoped to this transformer
 
-        public List<ConnectionNode> Nodes { get; set; } = [];
+        public Graph Graph { get; } = new();
 
-        public void AddNode(ConnectionNode node)
-        {
-            Nodes.Append(node);
-        }
+        public List<InternalConnection> InternalConnections { get; } = new();
+        public List<Terminal> Terminals { get; } = new();
 
         private readonly ObservableCollection<Winding> _windings = new();
         public IList<Winding> Windings => _windings;
@@ -59,6 +57,20 @@ namespace TfmrLib
                     }
                 }
             };
+        }
+
+        public Transformer Initialize()
+        {
+            if (Core != null)
+            {
+                Core.ParentTransformer = this;
+            }
+
+            for (int i = 0; i < Windings.Count; i++)
+            {
+                Windings[i].Initialize(this, Graph, i);
+            }
+            return this;
         }
 
         public Vector<double> GetTurnLengths_m()

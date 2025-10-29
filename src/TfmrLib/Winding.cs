@@ -13,27 +13,16 @@ namespace TfmrLib
 {
     public class Winding
     {
-        public int Id { get; set; }
+        public int Id { get; internal set; }
         public string Label { get; set; } // HV, LV, RW, etc.
-
-        private ConnectionNode _startNode = new();
-        public ConnectionNode StartNode { 
-            get => _startNode;
-            set
-            {
-                if (!ReferenceEquals(_startNode, value))
-                {
-                    _startNode = value;
-                    _startNode.IncidentEntities.Add(this);
-                }
-            }
-        }
-        public ConnectionNode EndNode { get; set; }
         
-        public Transformer ParentTransformer { get; set; }
+        public Transformer ParentTransformer { get; internal set; }
 
         private readonly ObservableCollection<WindingSegment> _segments = new();
         public IList<WindingSegment> Segments => _segments;
+
+        public List<InternalConnection> InternalConnections { get; } = new();
+        public List<Terminal> Terminals { get; } = new();
 
         public int NumTurns
         {
@@ -80,6 +69,17 @@ namespace TfmrLib
             };
         }
 
+        internal void Initialize(Transformer parent, Graph graph, int id)
+        {
+            ParentTransformer = parent;
+            Id = id;
+
+            for (int i = 0; i < Segments.Count; i++)
+            {
+                Segments[i].Initialize(this, graph, i);
+            }
+        }
+
         public GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
         {
             GeomLineLoop[] rtnLoop = new GeomLineLoop[0];
@@ -97,33 +97,5 @@ namespace TfmrLib
             _segments.Add(segment);
         }
 
-        public void AddSeriesSegments(int n = 1)
-        {
-            for (int i = 0; i < n; i++)
-            {
-                var seg = new WindingSegment();
-                seg.StartNode = StartNode;
-                seg.EndNode = EndNode;
-                AddSegment(seg);
-            }
-        }
-        
-        public void AddParallelSegments(int n = 1)
-        {
-            for (int i = 0; i < n; i++)
-            {
-                var seg = new WindingSegment();
-                seg.StartNode = StartNode;
-                if (i < n - 1)
-                {
-                    var int_node = new ConnectionNode();
-                }
-                else
-                {
-                    seg.EndNode = EndNode;
-                }
-                AddSegment(seg);
-            }
-        }
     }
 }

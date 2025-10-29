@@ -12,11 +12,19 @@ namespace TfmrLib
         Bottom
     }
     
-    public class WindingSegment
+    public class WindingSegment : IConnectedEntity
     {
-        public int Id { get; set; }
+        public int Id { get; internal set; }
         public string Label { get; set; } // e.g. "HV Upper", "HV Lower"
-        public Winding ParentWinding { get; set; }
+        public Winding ParentWinding { get; internal set; }
+
+        protected Node _a, _b;
+
+        public Node StartNode => _a;
+        public Node EndNode   => _b;
+
+        public IReadOnlyList<Node> Ports => _ports;
+        private Node[] _ports => new[] { _a, _b };
 
         private WindingGeometry _geometry;
         public WindingGeometry Geometry
@@ -30,20 +38,36 @@ namespace TfmrLib
             }
         }
 
-        public ConnectionNode StartNode { get; set; } // By convention, the start node is +V
-        public ConnectionNode EndNode { get; set; } // By convention, the end node is -V
-
         public StartNodeLocation StartLocation { get; set; } = StartNodeLocation.Top;
 
-        public WindingSegment()
+        internal void Initialize(Winding parent, Graph graph, int id)
         {
-            // Default constructor
+            ParentWinding = parent;
+            Id = id;
+
+            // Create the nodes for this segment
+            _a = graph.CreateNode($"W{parent.Id}_S{id}_Start");
+            _b = graph.CreateNode($"W{parent.Id}_S{id}_End");
+
+            // CRITICAL: Register this segment with the graph so it knows what's connected.
+            graph.Register(this);
+
+            if (Geometry != null)
+            {
+                Geometry.ParentSegment = this;
+            }
         }
 
-        public WindingSegment(Winding wdg)
+        public void RepointPort(Node oldNode, Node newNode)
         {
-            ParentWinding = wdg;
+            if (ReferenceEquals(StartNode, oldNode))
+            {
+                _a = newNode;
+            }
+            if (ReferenceEquals(EndNode, oldNode))
+            {
+                _b = newNode;
+            }
         }
-
     }
 }

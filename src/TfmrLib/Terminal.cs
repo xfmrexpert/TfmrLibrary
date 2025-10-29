@@ -13,8 +13,9 @@ namespace TfmrLib
         ZigZag
     }
 
-    public class Terminal : ConnectionNode
+    public class Terminal
     {
+        public Node InternalNode { get; set; }
         public Connection ConnectionType { get; set; }
         
         public double Voltage_kV { get; set; }
