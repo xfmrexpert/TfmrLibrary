@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -175,6 +176,11 @@ namespace TfmrLib
                     new Winding
                     {
                         Label = "TV",
+                        Terminals =
+                        {
+                            new Terminal { Label="Y1" },
+                            new Terminal { Label="YN" }
+                        },
                         Segments =
                         {
                             new WindingSegment

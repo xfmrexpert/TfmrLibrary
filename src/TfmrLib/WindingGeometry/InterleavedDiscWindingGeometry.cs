@@ -10,7 +10,8 @@
         }
 
         // Maintained at exactly NumDiscs length, auto-filled with None.
-        public List<InterleavingType> Interleaving { get; set; } = new();
+        public record InterleavedGroup(int NumDiscPairs, InterleavingType Type);
+        public List<InterleavedGroup> Interleaving { get; set; } = new();
 
         private int _numDiscs;
         public override int NumDiscs
@@ -27,7 +28,12 @@
 
         private void EnsureInterleavingLength()
         {
-            if (Interleaving.Count < _numDiscs / 2)
+            int discPairs = 0;
+            foreach (var grp in Interleaving)
+            {
+                discPairs += grp.NumDiscPairs;
+            }
+            if (discPairs < _numDiscs / 2)
             {
                 Interleaving.AddRange(Enumerable.Repeat(InterleavingType.None, _numDiscs / 2 - Interleaving.Count));
             }

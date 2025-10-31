@@ -1,5 +1,6 @@
 ﻿namespace TfmrLib;
 
+// Keeper of the Nodes
 public sealed class Graph
 {
     private int _nextNodeId = 0;

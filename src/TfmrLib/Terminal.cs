@@ -15,6 +15,7 @@ namespace TfmrLib
 
     public class Terminal
     {
+        public string Label { get; set; }
         public Node InternalNode { get; set; }
         public Connection ConnectionType { get; set; }
         
