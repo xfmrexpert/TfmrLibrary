@@ -1,6 +1,8 @@
-﻿namespace TfmrLib
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace TfmrLib
 {
-    public class InterleavedDiscWindingGeometry : DiscWindingGeometry
+    public class InterleavingSchedule
     {
         public enum InterleavingType
         {
@@ -11,22 +13,14 @@
 
         // Maintained at exactly NumDiscs length, auto-filled with None.
         public record InterleavedGroup(int NumDiscPairs, InterleavingType Type);
-        public List<InterleavedGroup> Interleaving { get; set; } = new();
+        private List<InterleavedGroup> _interleaving = [];
 
-        private int _numDiscs;
-        public override int NumDiscs
+        public InterleavingSchedule(int numDiscs)
         {
-            get => _numDiscs;
-            set
-            {
-                if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
-                if (_numDiscs == value) return;
-                _numDiscs = value;
-                EnsureInterleavingLength();
-            }
+            EnsureInterleavingLength(numDiscs);
         }
 
-        private void EnsureInterleavingLength()
+        private void EnsureInterleavingLength(int _numDiscs)
         {
             int discPairs = 0;
             foreach (var grp in Interleaving)
@@ -43,6 +37,38 @@
             }
         }
 
+        public InterleavingType GetInterleavingTypeForDiscPair(int discPair)
+        {
+            int sumPairs = 0;
+            foreach (var group in _interleaving)
+            {
+                sumPairs += group.NumDiscPairs;
+                if (discPair <= sumPairs) return group.Type;
+            }
+            throw new Exception($"Ran out of specified interleaving type for disc pair {discPair}");
+        }
+    }
+    
+    public class InterleavedDiscWindingGeometry : DiscWindingGeometry
+    {
+        
+        public InterleavingSchedule Interleaving { get; set; } = new();
+
+        private int _numDiscs;
+        public override int NumDiscs
+        {
+            get => _numDiscs;
+            set
+            {
+                if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
+                if (_numDiscs == value) return;
+                _numDiscs = value;
+                EnsureInterleavingLength();
+            }
+        }
+
+        
+
         protected override void BuildConductorMapping()
         {
             ConductorIndexToLogical = new Dictionary<int, LogicalConductorIndex>();
@@ -54,7 +80,7 @@
             for (int pair = 0; pair < num_disc_pairs; pair++)
             {
                 System.Diagnostics.Debug.WriteLine($"Building turn map for disc pair {pair}");
-                var interleaving = Interleaving.Count > pair ? Interleaving[pair] : InterleavingType.None;
+                var interleaving = Interleaving.GetInterleavingTypeForDiscPair(pair);
                 int turn_in_disc_pair = 0;
                 for (int disc_in_pair = 0; disc_in_pair < 2; disc_in_pair++)
                 {
