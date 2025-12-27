@@ -11,5 +11,6 @@ namespace TfmrLib
         public const double eps_0 = 8.854e-12;
         public const double mu_0 = 4 * Math.PI * 1e-7;
         public const double rho_copper = 1.68e-8; //ohm-m;
+        public const double eps_paper = 2.0;
     }
 }

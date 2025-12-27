@@ -18,6 +18,7 @@ namespace TfmrLib
         public double AxialCompressionFactor { get; set; } = 0.9;
         public abstract double ConductingArea_sqmm { get; }
         public double rho_c { get; set; } = Constants.rho_copper;
+        public double eps_paper { get; set; } = Constants.eps_paper;
 
         public abstract (GeomLineLoop, GeomLineLoop) CreateGeometry(ref Geometry geo, double r_mid_mm, double z_mid_mm);
 

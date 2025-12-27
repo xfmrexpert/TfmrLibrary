@@ -67,18 +67,18 @@ namespace TfmrLib
             return (disc, layer);
         }
 
-        public LogicalConductorIndex GetLogicalIndex(int conductorIndex)
+        public ConductorElectricalLocation GetElectricalLocation(int conductorIndex)
         {
-            if (ConductorIndexToLogical == null)
+            if (ConductorIndexToElectricalLocation == null)
                 BuildConductorMapping();
             
-            return ConductorIndexToLogical![conductorIndex];
+            return ConductorIndexToElectricalLocation![conductorIndex];
         }
 
         protected virtual void BuildConductorMapping()
         {
             int totalConductors = NumDiscs * TurnsPerDisc * NumParallelConductors;
-            ConductorIndexToLogical = new Dictionary<int, LogicalConductorIndex>(totalConductors);
+            ConductorIndexToElectricalLocation = new Dictionary<int, ConductorElectricalLocation>(totalConductors);
 
             int conductorIndex = 0;
             int logicalTurn = 0;
@@ -89,7 +89,7 @@ namespace TfmrLib
                 {
                     for (int strand = 0; strand < NumParallelConductors; strand++)
                     {
-                        ConductorIndexToLogical[conductorIndex] = new LogicalConductorIndex(logicalTurn, strand);
+                        ConductorIndexToElectricalLocation[conductorIndex] = new ConductorElectricalLocation(logicalTurn, strand);
                         conductorIndex++;
                     }
                     logicalTurn++;
@@ -102,7 +102,7 @@ namespace TfmrLib
             int totalConductors = NumDiscs * TurnsPerDisc * NumParallelConductors;
             _conductorLocations = new List<ConductorLocationAxi>(totalConductors);
             
-            if (ConductorIndexToLogical == null)
+            if (ConductorIndexToElectricalLocation == null)
                 BuildConductorMapping();
 
             int windingDirection;
@@ -187,7 +187,7 @@ namespace TfmrLib
 
             for (int conductorIndex = 0; conductorIndex < totalConductors; conductorIndex++)
             {
-                var logical = GetLogicalIndex(conductorIndex);
+                var logical = GetElectricalLocation(conductorIndex);
                 var location = _conductorLocations[conductorIndex];
                 var locationKey = new LocationKey(ParentWinding.Id, ParentSegment.Id, logical.Turn, logical.Strand);
 

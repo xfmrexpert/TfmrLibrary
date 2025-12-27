@@ -5,8 +5,10 @@
         public enum InterleavingType
         {
             None, // No interleaving
-            Partial,
-            Full
+            PartialStearns,
+            PartialNuys,
+            FullStearns,
+            FullNuys
         }
 
         // Maintained at exactly NumDiscs length, auto-filled with None.
@@ -26,16 +28,19 @@
             }
         }
 
+        // Note: Reconsider whether to fill in/remove entries to match disc pair count or just throw an exception if
+        // the counts dount match up
         private void EnsureInterleavingLength()
         {
             int discPairs = 0;
+            // Sum up disc pairs
             foreach (var grp in Interleaving)
             {
                 discPairs += grp.NumDiscPairs;
             }
             if (discPairs < _numDiscs / 2)
             {
-                Interleaving.AddRange(Enumerable.Repeat(InterleavingType.None, _numDiscs / 2 - Interleaving.Count));
+                Interleaving.AddRange(Enumerable.Repeat(new InterleavedGroup(1, InterleavingType.None), _numDiscs / 2 - Interleaving.Count));
             }
             else if (Interleaving.Count > _numDiscs / 2)
             {
@@ -45,21 +50,30 @@
 
         protected override void BuildConductorMapping()
         {
-            ConductorIndexToLogical = new Dictionary<int, LogicalConductorIndex>();
+            ConductorIndexToElectricalLocation = new Dictionary<int, ConductorElectricalLocation>();
 
             int num_disc_pairs = NumDiscs / 2;
             int pair_start_turn = 0;
             int disc = -1;
             int conductorIndex = 0;
+            int groupIndex = 0;
+            int pairInGroup = -1;
             for (int pair = 0; pair < num_disc_pairs; pair++)
             {
                 System.Diagnostics.Debug.WriteLine($"Building turn map for disc pair {pair}");
-                var interleaving = Interleaving.Count > pair ? Interleaving[pair] : InterleavingType.None;
+                // TODO: Need to grab interleave group for corresponding disc pair
+                pairInGroup++;
+                if (pairInGroup > Interleaving[groupIndex].NumDiscPairs)
+                {
+                    groupIndex++;
+                    pairInGroup = -1;
+                }
+                var interleaving = Interleaving[groupIndex];
                 int turn_in_disc_pair = 0;
                 for (int disc_in_pair = 0; disc_in_pair < 2; disc_in_pair++)
                 {
                     disc++;
-                    System.Diagnostics.Debug.WriteLine($"  Disc {disc} (disc_in_pair={disc_in_pair}), interleaving={interleaving}");
+                    System.Diagnostics.Debug.WriteLine($"  Disc {disc} (disc_in_pair={disc_in_pair}), interleaving={interleaving.Type}");
                     bool isInterleavedTurn = false;
                     int strand = 0;
                     for (int rad_pos = 0; rad_pos < TurnsPerDisc * NumParallelConductors; rad_pos++)
@@ -74,10 +88,10 @@
                             layer = rad_pos;
                         var physIndex = GetPhysicalPosition(conductorIndex);
 
-                        if (interleaving == InterleavingType.None)
+                        if (interleaving.Type == InterleavingType.None)
                         {
                             System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
-                            ConductorIndexToLogical[conductorIndex] = new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair, strand);
+                            ConductorIndexToElectricalLocation[conductorIndex] = new ConductorElectricalLocation(pair_start_turn + turn_in_disc_pair, strand);
                             // Increment turn and strand appropriately
                             if (strand == NumParallelConductors - 1)
                             {
@@ -89,17 +103,17 @@
                                 strand++;
                             }
                         }
-                        else if (interleaving == InterleavingType.Partial) // Turns are interleaved, strands are not
+                        else if (interleaving.Type == InterleavingType.PartialStearns) // Turns are interleaved, strands are not
                         {
                             if (isInterleavedTurn)
                             {
                                 System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair + TurnsPerDisc}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
-                                ConductorIndexToLogical[conductorIndex] = new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair + TurnsPerDisc, strand);
+                                ConductorIndexToElectricalLocation[conductorIndex] = new ConductorElectricalLocation(pair_start_turn + turn_in_disc_pair + TurnsPerDisc, strand);
                             }
                             else
                             {
                                 System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
-                                ConductorIndexToLogical[conductorIndex] = new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair, strand);
+                                ConductorIndexToElectricalLocation[conductorIndex] = new ConductorElectricalLocation(pair_start_turn + turn_in_disc_pair, strand);
                             }
                             if (strand == NumParallelConductors - 1)
                             {
@@ -119,17 +133,17 @@
                                 strand++;
                             }
                         }
-                        else if (interleaving == InterleavingType.Full)
+                        else if (interleaving.Type == InterleavingType.FullStearns)
                         {
                             if (isInterleavedTurn)
                             {
                                 System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair + TurnsPerDisc}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
-                                ConductorIndexToLogical[conductorIndex] = new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair + TurnsPerDisc, strand);
+                                ConductorIndexToElectricalLocation[conductorIndex] = new ConductorElectricalLocation(pair_start_turn + turn_in_disc_pair + TurnsPerDisc, strand);
                             }
                             else
                             {
                                 System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
-                                ConductorIndexToLogical[conductorIndex] = new LogicalConductorIndex(pair_start_turn + turn_in_disc_pair, strand);
+                                ConductorIndexToElectricalLocation[conductorIndex] = new ConductorElectricalLocation(pair_start_turn + turn_in_disc_pair, strand);
                             }
                             if (isInterleavedTurn)
                             {
@@ -160,7 +174,7 @@
             {
                 for (int s = 0; s < NumParallelConductors; s++)
                 {
-                    var cdrIdx = ConductorIndexToLogical[i];
+                    var cdrIdx = ConductorIndexToElectricalLocation[i];
                     var phys = GetPhysicalPosition(i);
                     System.Diagnostics.Debug.WriteLine($"Logical turn {cdrIdx.Turn}, strand {cdrIdx.Strand} -> Physical disc {phys.Disc}, layer {phys.Layer}");
                 }

@@ -24,8 +24,8 @@ namespace TfmrLib
         Axial   // Parallel conductors are oriented axially
     }
 
-    public record PhysicalConductorIndex(int Disc, int Layer); // Disc is vertical position (0 is top), Layer is radial position (0 is innermost)
-    public record LogicalConductorIndex(int Turn, int Strand); // Turn is the turn number (0 is first (top) turn), Strand is the parallel conductor number (0 is first strand)
+    public record ConductorPhysicalLocation(int Disc, int Layer); // Disc is vertical position (0 is top), Layer is radial position (0 is innermost)
+    public record ConductorElectricalLocation(int Turn, int Strand); // Turn is the turn number (0 is first (top) turn), Strand is the parallel conductor number (0 is first strand)
 
     public record ConductorLocationAxi(double RadialPosition_mm, double AxialPosition_mm, double TurnLength_mm);
 
@@ -48,8 +48,8 @@ namespace TfmrLib
         ?? throw new InvalidOperationException("TagManager not available (Transformer not set).");
 
         // Internal turn mapping structures
-        protected Dictionary<int, LogicalConductorIndex> ConductorIndexToLogical;
-        protected Dictionary<LogicalConductorIndex, int> LogicalToConductorIndex => ConductorIndexToLogical.ToDictionary(kv => kv.Value, kv => kv.Key);
+        protected Dictionary<int, ConductorElectricalLocation> ConductorIndexToElectricalLocation;
+        protected Dictionary<ConductorElectricalLocation, int> ElectricalLocationToConductorIndex => ConductorIndexToElectricalLocation.ToDictionary(kv => kv.Value, kv => kv.Key);
 
         protected List<ConductorLocationAxi> _conductorLocations = null;
         protected List<ConductorLocationAxi> ConductorLocations
@@ -102,13 +102,13 @@ namespace TfmrLib
 
         public int GetConductorIndex(int turnIndex, int strandIndex)
         {
-            if (ConductorIndexToLogical is null)
+            if (ConductorIndexToElectricalLocation is null)
             {
                 ComputeConductorLocations();
             }
-            var logicalIndex = new LogicalConductorIndex(turnIndex, strandIndex);
-            if (!LogicalToConductorIndex.TryGetValue(logicalIndex, out int conductorIndex))
-                throw new ArgumentOutOfRangeException(nameof(logicalIndex), "Logical conductor index not found.");
+            var electricalIndex = new ConductorElectricalLocation(turnIndex, strandIndex);
+            if (!ElectricalLocationToConductorIndex.TryGetValue(electricalIndex, out int conductorIndex))
+                throw new ArgumentOutOfRangeException(nameof(electricalIndex), "Electrical conductor index not found.");
 
             return conductorIndex;
         }
