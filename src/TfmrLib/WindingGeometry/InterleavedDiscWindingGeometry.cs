@@ -1,6 +1,8 @@
-﻿namespace TfmrLib
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace TfmrLib
 {
-    public class InterleavedDiscWindingGeometry : DiscWindingGeometry
+    public class InterleavingSchedule
     {
         public enum InterleavingType
         {
@@ -13,24 +15,17 @@
 
         // Maintained at exactly NumDiscs length, auto-filled with None.
         public record InterleavedGroup(int NumDiscPairs, InterleavingType Type);
-        public List<InterleavedGroup> Interleaving { get; set; } = new();
+        private List<InterleavedGroup> _interleaving = [];
 
-        private int _numDiscs;
-        public override int NumDiscs
+        public InterleavingSchedule(int numDiscs)
         {
-            get => _numDiscs;
-            set
-            {
-                if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
-                if (_numDiscs == value) return;
-                _numDiscs = value;
-                EnsureInterleavingLength();
-            }
+            EnsureInterleavingLength(numDiscs);
         }
 
         // Note: Reconsider whether to fill in/remove entries to match disc pair count or just throw an exception if
         // the counts dount match up
         private void EnsureInterleavingLength()
+        private void EnsureInterleavingLength(int _numDiscs)
         {
             int discPairs = 0;
             // Sum up disc pairs
@@ -47,6 +42,38 @@
                 Interleaving.RemoveRange(_numDiscs / 2, Interleaving.Count - _numDiscs / 2);
             }
         }
+
+        public InterleavingType GetInterleavingTypeForDiscPair(int discPair)
+        {
+            int sumPairs = 0;
+            foreach (var group in _interleaving)
+            {
+                sumPairs += group.NumDiscPairs;
+                if (discPair <= sumPairs) return group.Type;
+            }
+            throw new Exception($"Ran out of specified interleaving type for disc pair {discPair}");
+        }
+    }
+    
+    public class InterleavedDiscWindingGeometry : DiscWindingGeometry
+    {
+        
+        public InterleavingSchedule Interleaving { get; set; } = new();
+
+        private int _numDiscs;
+        public override int NumDiscs
+        {
+            get => _numDiscs;
+            set
+            {
+                if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
+                if (_numDiscs == value) return;
+                _numDiscs = value;
+                EnsureInterleavingLength();
+            }
+        }
+
+        
 
         protected override void BuildConductorMapping()
         {
