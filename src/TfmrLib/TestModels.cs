@@ -88,9 +88,9 @@ namespace TfmrLib
                                             new() { Count = 5, SpacerHeight_mm = Conversions.in_to_mm(0.188) }
                                         }
                                     },
-                                    Interleaving = new() { new InterleavedDiscWindingGeometry.InterleavedGroup(1, InterleavedDiscWindingGeometry.InterleavingType.FullStearns), 
-                                                            new InterleavedDiscWindingGeometry.InterleavedGroup(1, InterleavedDiscWindingGeometry.InterleavingType.PartialStearns), 
-                                                            new InterleavedDiscWindingGeometry.InterleavedGroup(1, InterleavedDiscWindingGeometry.InterleavingType.None) },
+                                    Interleaving = new() { new InterleavingSchedule.InterleavedGroup(1, InterleavingSchedule.InterleavingType.FullStearns), 
+                                                            new InterleavingSchedule.InterleavedGroup(1, InterleavingSchedule.InterleavingType.PartialStearns), 
+                                                            new InterleavingSchedule.InterleavedGroup(1, InterleavingSchedule.InterleavingType.None) },
 
                                     InnerRadius_mm = Conversions.in_to_mm(20.25),
                                     DistanceAboveBottomYoke_mm = Conversions.in_to_mm(15.0)

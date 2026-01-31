@@ -2,7 +2,7 @@
 
 namespace TfmrLib
 {
-    public class InterleavingSchedule
+    public class InterleavingSchedule : List<InterleavingSchedule.InterleavedGroup>
     {
         public enum InterleavingType
         {
@@ -15,38 +15,43 @@ namespace TfmrLib
 
         // Maintained at exactly NumDiscs length, auto-filled with None.
         public record InterleavedGroup(int NumDiscPairs, InterleavingType Type);
-        private List<InterleavedGroup> _interleaving = [];
+
+        public InterleavingSchedule() {}
 
         public InterleavingSchedule(int numDiscs)
         {
             EnsureInterleavingLength(numDiscs);
         }
 
+        public void Add(int numDiscPairs, InterleavingType type)
+        {
+            Add(new InterleavedGroup(numDiscPairs, type));
+        }
+
         // Note: Reconsider whether to fill in/remove entries to match disc pair count or just throw an exception if
         // the counts dount match up
-        private void EnsureInterleavingLength()
-        private void EnsureInterleavingLength(int _numDiscs)
+        public void EnsureInterleavingLength(int _numDiscs)
         {
             int discPairs = 0;
             // Sum up disc pairs
-            foreach (var grp in Interleaving)
+            foreach (var grp in this)
             {
                 discPairs += grp.NumDiscPairs;
             }
             if (discPairs < _numDiscs / 2)
             {
-                Interleaving.AddRange(Enumerable.Repeat(new InterleavedGroup(1, InterleavingType.None), _numDiscs / 2 - Interleaving.Count));
+                AddRange(Enumerable.Repeat(new InterleavedGroup(1, InterleavingType.None), _numDiscs / 2 - Count));
             }
-            else if (Interleaving.Count > _numDiscs / 2)
+            else if (Count > _numDiscs / 2)
             {
-                Interleaving.RemoveRange(_numDiscs / 2, Interleaving.Count - _numDiscs / 2);
+                RemoveRange(_numDiscs / 2, Count - _numDiscs / 2);
             }
         }
 
         public InterleavingType GetInterleavingTypeForDiscPair(int discPair)
         {
             int sumPairs = 0;
-            foreach (var group in _interleaving)
+            foreach (var group in this)
             {
                 sumPairs += group.NumDiscPairs;
                 if (discPair <= sumPairs) return group.Type;
@@ -69,11 +74,9 @@ namespace TfmrLib
                 if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
                 if (_numDiscs == value) return;
                 _numDiscs = value;
-                EnsureInterleavingLength();
+                Interleaving.EnsureInterleavingLength(_numDiscs);
             }
         }
-
-        
 
         protected override void BuildConductorMapping()
         {
@@ -115,7 +118,7 @@ namespace TfmrLib
                             layer = rad_pos;
                         var physIndex = GetPhysicalPosition(conductorIndex);
 
-                        if (interleaving.Type == InterleavingType.None)
+                        if (interleaving.Type == InterleavingSchedule.InterleavingType.None)
                         {
                             System.Diagnostics.Debug.WriteLine($"    turn={pair_start_turn + turn_in_disc_pair}, strand={strand}, rad_pos={rad_pos}, turn_in_disc={turn_in_disc_pair}, strand={strand}, physIndex=({physIndex.Disc},{physIndex.Layer})");
                             ConductorIndexToElectricalLocation[conductorIndex] = new ConductorElectricalLocation(pair_start_turn + turn_in_disc_pair, strand);
@@ -130,7 +133,7 @@ namespace TfmrLib
                                 strand++;
                             }
                         }
-                        else if (interleaving.Type == InterleavingType.PartialStearns) // Turns are interleaved, strands are not
+                        else if (interleaving.Type == InterleavingSchedule.InterleavingType.PartialStearns) // Turns are interleaved, strands are not
                         {
                             if (isInterleavedTurn)
                             {
@@ -160,7 +163,7 @@ namespace TfmrLib
                                 strand++;
                             }
                         }
-                        else if (interleaving.Type == InterleavingType.FullStearns)
+                        else if (interleaving.Type == InterleavingSchedule.InterleavingType.FullStearns)
                         {
                             if (isInterleavedTurn)
                             {

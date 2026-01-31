@@ -69,7 +69,7 @@ public class MTL_Matrices
                             Label = "Segment 1",
                             Geometry = new InterleavedDiscWindingGeometry
                             {
-                                Interleaving = [.. Enumerable.Repeat(InterleavedDiscWindingGeometry.InterleavingType.Full, 3)],
+                                Interleaving = [.. Enumerable.Repeat(new InterleavingSchedule.InterleavedGroup(1, InterleavingSchedule.InterleavingType.FullStearns), 3)],
                                 ConductorType = new RectConductor
                                 {
                                     StrandHeight_mm = Conversions.in_to_mm(0.3),
