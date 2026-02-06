@@ -92,13 +92,13 @@ namespace TfmrLib
 
         public GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
         {
-            GeomLineLoop[] rtnLoop = new GeomLineLoop[0];
+            var rtnLoop = new List<GeomLineLoop>();
             foreach (var seg in Segments)
             {
                 if (seg.Geometry != null)
-                    rtnLoop = rtnLoop.Concat(seg.Geometry.GenerateGeometry(ref geometry)).ToArray();
+                    rtnLoop.AddRange(seg.Geometry.GenerateGeometry(ref geometry));
             }
-            return rtnLoop;
+            return rtnLoop.ToArray();
         }
 
         public void AddSegment(WindingSegment segment)
