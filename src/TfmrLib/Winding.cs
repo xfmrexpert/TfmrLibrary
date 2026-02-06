@@ -78,6 +78,16 @@ namespace TfmrLib
             {
                 Segments[i].Initialize(this, graph, i);
             }
+
+            foreach (var conn in InternalConnections)
+            {
+                conn.Apply(this, graph);
+            }
+
+            foreach (var term in Terminals)
+            {
+                term.Initialize(this);
+            }
         }
 
         public GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
