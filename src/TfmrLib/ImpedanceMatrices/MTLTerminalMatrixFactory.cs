@@ -33,18 +33,6 @@ namespace TfmrLib
         // In HA and HB, the column corresponds to the conductor index (x2)
         public static Matrix_d CalcHAForSeg(WindingSegment seg)
         {
-            // Matrix_d HA11 = M_d.DenseIdentity(wdg.NumConductors); // Identity matrix that corresponds to V(0)
-            // Matrix_d HA21 = M_d.Dense(wdg.NumConductors, wdg.NumConductors); // Zero matrix
-            // Matrix_d HA12 = M_d.Dense(wdg.NumConductors, wdg.NumConductors); // Matrix that should relate to V(2PI)
-            // for (int t = 0; t < (wdg.NumConductors - 1); t++)
-            // {
-            //     HA12[t + 1, t] = -1.0;
-            // }
-            // Matrix_d HA22 = M_d.Dense(wdg.NumConductors, wdg.NumConductors);
-            // HA22[wdg.NumConductors - 1, wdg.NumConductors - 1] = 1.0;
-            // Matrix_d HA1 = HA11.Append(HA12);
-            // Matrix_d HA2 = HA21.Append(HA22);
-            // return HA1.Stack(HA2);
             var seg_geo = seg.Geometry;
             Matrix_d HA11 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors); // Start with all 0s
             Matrix_d HA12 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
@@ -63,8 +51,15 @@ namespace TfmrLib
                 }
             }
             Matrix_d HA1 = HA11.Append(HA12);
-            // FIXME: Build the rest you twat
-            return HA1;
+
+            // The remaining rows are typically constraints on current (KCL), but we do need to set the final boundary condition
+            Matrix_d HA21 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            Matrix_d HA22 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            HA22[seg_geo.NumConductors - 1, seg_geo.NumConductors - 1] = 1.0;
+
+            Matrix_d HA2 = HA21.Append(HA22);
+
+            return HA1.Stack(HA2);
         }
 
         public static Matrix_c CalcHBForSeg(WindingSegment seg, double f)
@@ -96,11 +91,9 @@ namespace TfmrLib
                 {
                     var HA_seg = CalcHAForSeg(seg);
                     HA.SetSubMatrix(startIdx, startIdx, HA_seg);
-                    startIdx += HA_seg.ColumnCount;
+                    startIdx += HA_seg.ColumnCount; // Should be equivalent to HA_seg.RowCount if square
                 }
             }
-            // FIXME: This is a quick, half-ass fix to make things work for the single winding case
-            HA[HA.RowCount - 1, HA.ColumnCount - 1] = 1.0;
             return HA;
         }
         
