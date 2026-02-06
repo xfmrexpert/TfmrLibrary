@@ -4,7 +4,7 @@
 public class Graph
 {
     private int _nextNodeId = 0;
-    private readonly List<Node> _nodes = new();
+    private readonly HashSet<Node> _nodes = new();
     private readonly List<IConnectedEntity> _entities = new();
 
     // node -> incident entities
