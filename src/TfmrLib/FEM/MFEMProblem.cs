@@ -9,9 +9,30 @@ namespace TfmrLib.FEM
 {
     public class MFEMProblem : FEMProblem
     {
+        public string Filename {get; set;}
+        public bool ShowInTerminal { get; set; } = false;
+
         private string FindMFEMExecutable()
         {
             return "mfem-electromag";
+        }
+
+        private string? FindTerminal()
+        {
+            string[] terminals = { "cosmic-term", "gnome-terminal", "xterm", "konsole" };
+            var pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (pathEnv != null)
+            {
+                foreach (var dir in pathEnv.Split(Path.PathSeparator))
+                {
+                    foreach (var term in terminals)
+                    {
+                        var candidate = Path.Combine(dir, term);
+                        if (File.Exists(candidate)) return candidate;
+                    }
+                }
+            }
+            return null;
         }
 
         private void WriteMFEMFile()
@@ -41,14 +62,14 @@ namespace TfmrLib.FEM
                         // --wait lets our process block until the bash command (including read) finishes.
                         p.StartInfo.FileName = term;
                         p.StartInfo.Arguments =
-                            $"--wait -- bash -lc \"'{mygetdp}' {args}; code=$?; echo $code > '{exitFile}'; " +
+                            $"--wait -- bash -lc \"'{mfem_exe}' {args}; code=$?; echo $code > '{exitFile}'; " +
                             "echo; echo 'MFEM-ElectroMag exited with code '$code'. Press Enter to close...'; read\"";
                     }
                     else if (term.Contains("xterm"))
                     {
                         p.StartInfo.FileName = term;
                         p.StartInfo.Arguments =
-                            $"-e bash -lc \"'{mygetdp}' {args}; code=$?; echo $code > '{exitFile}'; " +
+                            $"-e bash -lc \"'{mfem_exe}' {args}; code=$?; echo $code > '{exitFile}'; " +
                             "echo; echo 'MFEM-ElectroMag exited with code '$code'. Press Enter to close...'; read\"";
                     }
                     else // konsole
@@ -56,7 +77,7 @@ namespace TfmrLib.FEM
                         // --noclose keeps window by default, but we still add a read for consistency
                         p.StartInfo.FileName = term;
                         p.StartInfo.Arguments =
-                            $"--noclose -e bash -lc \"'{mygetdp}' {args}; code=$?; echo $code > '{exitFile}'; " +
+                            $"--noclose -e bash -lc \"'{mfem_exe}' {args}; code=$?; echo $code > '{exitFile}'; " +
                             "echo; echo 'MFEM-ElectroMag exited with code '$code'. Press Enter to close...'; read\"";
                     }
                     p.StartInfo.UseShellExecute = false;
@@ -89,7 +110,7 @@ namespace TfmrLib.FEM
             {
                 var sb = new StringBuilder();
                 using var p = new Process();
-                p.StartInfo.FileName = mygetdp;
+                p.StartInfo.FileName = mfem_exe;
                 p.StartInfo.Arguments = args;
                 p.StartInfo.CreateNoWindow = true;
                 p.StartInfo.UseShellExecute = false;
