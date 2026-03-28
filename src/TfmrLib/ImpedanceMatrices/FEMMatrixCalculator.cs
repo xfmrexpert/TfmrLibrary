@@ -24,7 +24,7 @@ namespace TfmrLib
         {
             var meshGen = new MeshGenerator();
             var geometry = tfmr.GenerateGeometry();
-            double meshscale = 0.1;
+            double meshscale = 1.0;
             meshGen.AddGeometry(geometry);
             var geoFile = "case.geo";
             meshFile = "case.msh";

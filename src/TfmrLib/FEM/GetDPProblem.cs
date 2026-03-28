@@ -24,10 +24,11 @@ namespace TfmrLib.FEM
                 return GetDPPath;
 
             var envPath = Environment.GetEnvironmentVariable("GETDP_PATH");
+            envPath = string.IsNullOrEmpty(envPath) ? null : envPath.Trim('"');
             if (!string.IsNullOrEmpty(envPath) && File.Exists(envPath))
                 return envPath;
 
-            string[] relativePaths = { "./bin/getdp", "../bin/getdp", "../../../bin/getdp" };
+            string[] relativePaths = { "./getdp", "./bin/getdp", "../bin/getdp", "../../../bin/getdp" };
             foreach (var rel in relativePaths)
                 if (File.Exists(rel)) return Path.GetFullPath(rel);
 
