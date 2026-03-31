@@ -113,6 +113,8 @@ namespace TfmrLib
             fem.MeshFile = meshFile;
             fem.Filename = $"./Results/{excitedTurn}/case.pro";
 
+            fem.Frequency = freq;
+
             var oil = new Material("Oil")
             {
                 Properties = new Dictionary<string, double> {
