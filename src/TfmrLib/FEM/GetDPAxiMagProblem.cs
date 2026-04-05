@@ -3,6 +3,7 @@ namespace TfmrLib.FEM
 {
     public class GetDPAxiMagProblem : GetDPProblem
     {
+        public double Frequency {get; set;} = 60.0;
         public GetDPAxiMagProblem()
         {
             formulation = "Magnetodynamics2D_av";
@@ -30,7 +31,7 @@ namespace TfmrLib.FEM
             f.WriteLine($"  ConductorList = Region[{{{string.Join(", ", conductingRegions.Select(r => r.Name))}}}];");
             f.WriteLine("}");
             f.WriteLine();
-            f.WriteLine("Freq = 1.0; // Hz");
+            f.WriteLine($"Freq = {Frequency}; // Hz");
             f.WriteLine("Group {");
             f.WriteLine("  DefineGroup[");
             f.WriteLine("    // The full magnetic domain:");

@@ -31,10 +31,10 @@ namespace TfmrLib
             if (geometry == null)
                 throw new ArgumentNullException(nameof(geometry));
 
-            var LL = geometry.AddPoint(CoreLegRadius_mm / 1000, -WindowHeight_mm / 1000 / 2);
-            var UL = geometry.AddPoint(CoreLegRadius_mm / 1000, WindowHeight_mm / 1000 / 2);
-            var UR = geometry.AddPoint((CoreLegRadius_mm + WindowWidth_mm) / 1000, WindowHeight_mm / 1000 / 2);
-            var LR = geometry.AddPoint((CoreLegRadius_mm + WindowWidth_mm) / 1000, -WindowHeight_mm / 1000 / 2);
+            var LL = geometry.AddPoint(CoreLegRadius_mm / 1000, -WindowHeight_mm / 1000 / 2, 0.01);
+            var UL = geometry.AddPoint(CoreLegRadius_mm / 1000, WindowHeight_mm / 1000 / 2, 0.01);
+            var UR = geometry.AddPoint((CoreLegRadius_mm + WindowWidth_mm) / 1000, WindowHeight_mm / 1000 / 2, 0.01);
+            var LR = geometry.AddPoint((CoreLegRadius_mm + WindowWidth_mm) / 1000, -WindowHeight_mm / 1000 / 2, 0.01);
             var axis = geometry.AddLine(LL, UL);
             Tags.TagEntityByString(axis, "CoreLeg");
             var top_yoke = geometry.AddLine(UL, UR);
