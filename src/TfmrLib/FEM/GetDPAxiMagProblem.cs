@@ -3,8 +3,7 @@ namespace TfmrLib.FEM
 {
     public class GetDPAxiMagProblem : GetDPProblem
     {
-        public double Frequency { get; set; } = 60.0;
-
+        public double Frequency {get; set;} = 60.0;
         public GetDPAxiMagProblem()
         {
             formulation = "Magnetodynamics2D_av";

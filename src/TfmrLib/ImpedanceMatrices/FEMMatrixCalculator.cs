@@ -112,6 +112,7 @@ namespace TfmrLib
             fem.Order = order;
             fem.MeshFile = meshFile;
             fem.Filename = $"./Results/{excitedTurn}/case.pro";
+            fem.Frequency = freq;
 
             fem.Frequency = freq;
 
