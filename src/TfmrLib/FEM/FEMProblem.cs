@@ -8,6 +8,7 @@ namespace TfmrLib.FEM
 {
     public class FEMProblem
     {
+        public string MeshFile { get; set; }
         public List<Material> Materials { get; set; } = new List<Material>();
         public List<Region> Regions { get; set; } = new List<Region>();
         public List<BoundaryCondition> BoundaryConditions { get; set; } = new List<BoundaryCondition>();

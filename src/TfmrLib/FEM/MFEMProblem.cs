@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace TfmrLib.FEM
 {
     public class MFEMProblem : FEMProblem
     {
-        public string Filename {get; set;}
+        public string Filename { get; set; } = "case.json";
         public bool ShowInTerminal { get; set; } = false;
 
         private string FindMFEMExecutable()
@@ -37,7 +38,85 @@ namespace TfmrLib.FEM
 
         private void WriteMFEMFile()
         {
-            
+            // Write out JSON file for the MFEM-ElectroMag solver
+            using (var stream = new StreamWriter(Filename))
+            {
+                stream.WriteLine("{");
+                stream.WriteLine("\t\"simulation\": {");
+                stream.WriteLine("\t\t\"type\": \"electrostatics\",");
+                stream.WriteLine($"\t\t\"mesh\": \"{MeshFile}\",");
+                stream.WriteLine("\t\t\"order\": 2,");
+                stream.WriteLine("\t\t\"axisymmetric\": true,");
+                stream.WriteLine("\t\t\"solver_tolerance\": 1e-12,");
+                stream.WriteLine("\t\t\"solver_max_iter\": 2000,");
+                stream.WriteLine("\t\t\"solver_print_level\": 1");
+                stream.WriteLine("\t},");
+                stream.WriteLine("\t\"materials\": [");
+                foreach (var material in Materials)
+                {
+                    stream.WriteLine("\t{");
+                    stream.WriteLine($"\t\t\"name\": \"{material.Name}\",");
+                    stream.WriteLine("\t\t\"properties\": {");
+                    foreach (var prop in material.Properties)
+                    {
+                        stream.WriteLine($"\t\t\t\"{prop.Key}\": \t{prop.Value}");
+                    }
+                    stream.WriteLine("\t\t}");
+                    if (material != Materials.Last())
+                    {
+                        stream.WriteLine("\t},");
+                    }
+                    else
+                    {
+                        stream.WriteLine("\t}");
+                    }
+                }
+                stream.WriteLine("\t],");
+                stream.WriteLine("\t\"regions\": [");
+                foreach (var region in Regions)
+                {
+                    stream.WriteLine("\t{");
+                    stream.WriteLine($"\t\t\"name\": \"{region.Name}\",");
+                    stream.WriteLine($"\t\t\"attribute_ids\": [{string.Join(',', region.Tags)}],");
+                    stream.WriteLine($"\t\t\"material\": {Materials.IndexOf(region.Material)+1}");
+                    if (region != Regions.Last())
+                    {
+                        stream.WriteLine("\t},");
+                    }
+                    else
+                    {
+                        stream.WriteLine("\t}");
+                    }
+                }
+                stream.WriteLine("\t],");
+                stream.WriteLine("\t\"boundaries\": [");
+                foreach (var bc in BoundaryConditions)
+                {
+                    stream.WriteLine("\t{");
+                    stream.WriteLine($"\t\t\"name\": \"{bc.Name}\",");
+                    stream.WriteLine($"\t\t\"attributes\": [{string.Join(',', bc.Tags)}],");
+                    if (bc is NeumannBoundaryCondition neumann_bc)
+                    {
+                        stream.WriteLine($"\t\t\"type\": \"Neumann\",");
+                        stream.WriteLine($"\t\t\"value\": {neumann_bc.Flux}");
+                    }
+                    else if (bc is DirichletBoundaryCondition dirichlet_bc)
+                    {
+                        stream.WriteLine($"\t\t\"type\": \"Dirichlet\",");
+                        stream.WriteLine($"\t\t\"value\": {dirichlet_bc.Potential}");
+                    }
+                    if (bc != BoundaryConditions.Last())
+                    {
+                        stream.WriteLine("\t},");
+                    }
+                    else
+                    {
+                        stream.WriteLine("\t}");
+                    }
+                }
+                stream.WriteLine("\t]");
+                stream.WriteLine("}");
+            }
         }
 
         public override void Solve()

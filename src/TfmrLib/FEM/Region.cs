@@ -15,6 +15,15 @@ namespace TfmrLib.FEM
         // Region-specific properties override material properties
         public Dictionary<string, double> Properties { get; } = new();
 
+        public Region() { }
+
+        public Region(string name,  List<int> tags, Material? material)
+        {
+            Name = name;
+            Tags = tags;
+            Material = material;
+        }
+
         public Region SetMaterial(Material m) { Material = m; return this; }
         public Region Property(string prop, double value) { Properties[prop] = value; return this; }
 

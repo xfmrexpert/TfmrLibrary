@@ -10,7 +10,6 @@ namespace TfmrLib.FEM
     public class GetDPProblem : FEMProblem
     {
         public string Filename { get; set; } = "case.pro"; // default
-        public string MeshFile { get; set; } = "case.msh"; // default
         public string? GetDPPath { get; set; }  // configurable
         public int Order { get; set; } = 1;
         public bool ShowInTerminal { get; set; } = false;
@@ -73,7 +72,7 @@ namespace TfmrLib.FEM
             Console.WriteLine($"Writing GetDP file to {Filename}");
             // Check if directory exists, create if not
             var dir = Path.GetDirectoryName(Filename);
-            if (dir != null && !Directory.Exists(dir))
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
