@@ -13,8 +13,19 @@ namespace TfmrLib.FEM
         public string Filename { get; set; } = "case.json";
         public bool ShowInTerminal { get; set; } = false;
 
+        /// <summary>
+        /// Path the solver will write results to (Gmsh MSH 2.2 ASCII, with $NodeData /
+        /// $ElementNodeData / $ElementData views). Defaults to "&lt;Filename&gt;.results.msh".
+        /// </summary>
+        public string? ResultsFile { get; set; }
+
         private string FindMFEMExecutable()
         {
+            // Allow developer override (e.g. point at the CMake build output).
+            var fromEnv = Environment.GetEnvironmentVariable("MFEM_ELECTROMAG_EXE");
+            if (!string.IsNullOrWhiteSpace(fromEnv) && File.Exists(fromEnv))
+                return fromEnv;
+
             return "mfem-electromag";
         }
 
@@ -126,6 +137,9 @@ namespace TfmrLib.FEM
 
             WriteMFEMFile();
 
+            // Default results path next to the case file.
+            ResultsFile ??= Path.ChangeExtension(Filename, null) + ".results.msh";
+
             string args = $"{Filename}";
 
             if (ShowInTerminal)
@@ -179,6 +193,7 @@ namespace TfmrLib.FEM
                 {
                     try { if (File.Exists(exitFile)) File.Delete(exitFile); } catch { }
                 }
+                TryLoadSolution();
                 return;
             }
 
@@ -199,7 +214,7 @@ namespace TfmrLib.FEM
                 p.OutputDataReceived += (s, a) => { if (a.Data != null) { Console.WriteLine(a.Data); sb.AppendLine(a.Data); } };
                 p.ErrorDataReceived += (s, a) => { if (a.Data != null) { Console.WriteLine(a.Data); sb.AppendLine(a.Data); } };
 
-                var timer = new System.Timers.Timer(60000);
+                var timer = new System.Timers.Timer(360000);
                 timer.Elapsed += (s, e) =>
                 {
                     if (!p.HasExited)
@@ -226,7 +241,34 @@ namespace TfmrLib.FEM
                 if (return_code != 0 && return_code != -1)
                     throw new Exception($"Failed to run MFEM-ElectroMag (exit {return_code})");
             }
+
+            TryLoadSolution();
         }
-        
+
+        private void TryLoadSolution()
+        {
+            if (string.IsNullOrEmpty(ResultsFile))
+                return;
+
+            if (!File.Exists(ResultsFile))
+            {
+                Console.WriteLine($"MFEM-ElectroMag did not produce results file '{ResultsFile}'.");
+                return;
+            }
+
+            try
+            {
+                Solution = FEMSolution.Load(ResultsFile);
+                Console.WriteLine($"Loaded FEM solution from {ResultsFile} " +
+                    $"(nodal views: {Solution.NodalScalars.Count}, " +
+                    $"element-nodal views: {Solution.ElementNodalFields.Count}, " +
+                    $"element views: {Solution.ElementFields.Count}).");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to load FEM results from '{ResultsFile}': {ex.Message}");
+            }
+        }
+
     }
 }

@@ -15,6 +15,12 @@ namespace TfmrLib.FEM
         public List<Source> Sources { get; set; } = new List<Source>(); // Sources are for things like current density or charge density (right-hand side terms)
         public List<Excitation> Excitations { get; set; } = new List<Excitation>(); // Excitations apply to ports or regions with prescribed values like current or voltage
 
+        /// <summary>
+        /// Populated by <see cref="Solve"/> in derived classes once a solution has been
+        /// computed and (optionally) loaded back from the solver's output.
+        /// </summary>
+        public FEMSolution? Solution { get; protected set; }
+
         public virtual void Solve()
         {
             throw new NotImplementedException("Solve method not implemented for base FEMProblem class");
