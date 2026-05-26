@@ -15,9 +15,18 @@ namespace TfmrLib.FEM
 
         /// <summary>
         /// Path the solver will write results to (Gmsh MSH 2.2 ASCII, with $NodeData /
-        /// $ElementNodeData / $ElementData views). Defaults to "&lt;Filename&gt;.results.msh".
+        /// $ElementNodeData / $ElementData views). Defaults to
+        /// "&lt;MeshFile-without-extension&gt;.results.msh" (the solver writes its output
+        /// next to the input mesh, not next to the case JSON).
         /// </summary>
         public string? ResultsFile { get; set; }
+
+        /// <summary>
+        /// Last error reported while loading the solver's output (or null on success).
+        /// Useful for surfacing the reason no <see cref="FEMProblem.Solution"/> was set
+        /// after <see cref="Solve"/> returns.
+        /// </summary>
+        public string? LastLoadError { get; private set; }
 
         private string FindMFEMExecutable()
         {
@@ -137,8 +146,16 @@ namespace TfmrLib.FEM
 
             WriteMFEMFile();
 
-            // Default results path next to the case file.
-            ResultsFile ??= Path.ChangeExtension(Filename, null) + ".results.msh";
+            // Default results path: solver writes "<mesh-basename>.results.msh" next to
+            // the input mesh, not next to the case JSON. Fall back to the case file's
+            // directory only if MeshFile isn't set.
+            if (string.IsNullOrEmpty(ResultsFile))
+            {
+                var basePath = !string.IsNullOrEmpty(MeshFile)
+                    ? Path.ChangeExtension(MeshFile, null)
+                    : Path.ChangeExtension(Filename, null);
+                ResultsFile = basePath + ".results.msh";
+            }
 
             string args = $"{Filename}";
 
@@ -247,13 +264,46 @@ namespace TfmrLib.FEM
 
         private void TryLoadSolution()
         {
+            LastLoadError = null;
+
             if (string.IsNullOrEmpty(ResultsFile))
+            {
+                LastLoadError = "ResultsFile path was not set.";
+                Console.WriteLine(LastLoadError);
                 return;
+            }
 
             if (!File.Exists(ResultsFile))
             {
-                Console.WriteLine($"MFEM-ElectroMag did not produce results file '{ResultsFile}'.");
-                return;
+                // Try a few common alternates next to the mesh file before giving up.
+                var meshDir = !string.IsNullOrEmpty(MeshFile)
+                    ? Path.GetDirectoryName(MeshFile)
+                    : Path.GetDirectoryName(ResultsFile);
+                string? found = null;
+                if (!string.IsNullOrEmpty(meshDir) && Directory.Exists(meshDir))
+                {
+                    foreach (var pattern in new[] { "*.results.msh", "results*.msh", "*solution*.msh" })
+                    {
+                        var hits = Directory.GetFiles(meshDir, pattern);
+                        if (hits.Length > 0)
+                        {
+                            // Prefer the newest file.
+                            Array.Sort(hits, (a, b) => File.GetLastWriteTimeUtc(b).CompareTo(File.GetLastWriteTimeUtc(a)));
+                            found = hits[0];
+                            break;
+                        }
+                    }
+                }
+
+                if (found == null)
+                {
+                    LastLoadError = $"MFEM-ElectroMag did not produce results file '{ResultsFile}'.";
+                    Console.WriteLine(LastLoadError);
+                    return;
+                }
+
+                Console.WriteLine($"Results file '{ResultsFile}' not found; using '{found}' instead.");
+                ResultsFile = found;
             }
 
             try
@@ -266,7 +316,8 @@ namespace TfmrLib.FEM
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to load FEM results from '{ResultsFile}': {ex.Message}");
+                LastLoadError = $"Failed to load FEM results from '{ResultsFile}': {ex.Message}";
+                Console.WriteLine(LastLoadError);
             }
         }
 
