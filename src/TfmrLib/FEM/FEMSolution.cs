@@ -43,6 +43,13 @@ namespace TfmrLib.FEM
         public Dictionary<string, Dictionary<int, double[]>> ElementFields { get; init; }
             = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Physical (material / boundary) tag → human-readable name. Populated from the
+        /// .msh file's $PhysicalNames section when present, and may be augmented by
+        /// callers using the regions / BC names known at build time.
+        /// </summary>
+        public Dictionary<int, string> PhysicalNames { get; init; } = new();
+
         public static FEMSolution Load(string mshResultsPath)
         {
             if (!File.Exists(mshResultsPath))
@@ -88,6 +95,7 @@ namespace TfmrLib.FEM
                 NodalScalars = nodal,
                 ElementNodalFields = elemNodal,
                 ElementFields = elem,
+                PhysicalNames = new Dictionary<int, string>(gmsh.PhysicalNames),
             };
         }
 
