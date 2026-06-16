@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public class BoundaryCondition
+    public class BoundaryCondition : INamed
     {
-        public string Name { get; set; }
-        public List<int> Tags { get; set; }
+        public string Name { get; init; }
+        public string EntityGroupName { get; set; } = string.Empty;
     }
 
     public class NeumannBoundaryCondition : BoundaryCondition

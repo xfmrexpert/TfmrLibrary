@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public partial class Region
+    public partial class Region : INamed
     {
-        public string Name { get; set; }
-        public List<int> Tags { get; set; } = new List<int>();
+        public string Name { get; init; }
+        public string EntityGroupName { get; set; } = string.Empty;
         public Material? Material { get; set; }
 
         // Region-specific properties override material properties
@@ -17,10 +17,10 @@ namespace TfmrLib.FEM
 
         public Region() { }
 
-        public Region(string name,  List<int> tags, Material? material)
+        public Region(string name, string entityGroupName, Material? material)
         {
             Name = name;
-            Tags = tags;
+            EntityGroupName = entityGroupName;
             Material = material;
         }
 

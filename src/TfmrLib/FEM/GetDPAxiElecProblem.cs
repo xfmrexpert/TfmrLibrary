@@ -9,9 +9,9 @@ namespace TfmrLib.FEM
             postop = "Electrostatics_v";
         }
 
-        protected override void WriteGetDPFile()
+        protected override void WriteGetDPFile(Scenario sc)
         {
-            base.WriteGetDPFile();
+            base.WriteGetDPFile(sc);
             Console.WriteLine($"Appending Electrostatics definitions to {Filename}");
             var f = File.AppendText(Filename);
             f.WriteLine();
@@ -31,10 +31,10 @@ namespace TfmrLib.FEM
             // f.WriteLine("}];");
 
             f.Write("  Sur_C_Elec = Region[{");
-            foreach (var exc in Excitations)
+            foreach (var exc in sc.Excitations)
             {
-                f.Write($"{exc.Region.Name}");
-                if (exc != Excitations.Last())
+                f.Write($"{exc.Terminal.EntityGroup.Name}");
+                if (exc != sc.Excitations.Last())
                     f.Write(", ");
             }
             f.WriteLine("}];");
@@ -83,9 +83,9 @@ namespace TfmrLib.FEM
             f.WriteLine("  }");
             f.WriteLine("  { Name GlobalElectricPotential; Type Assign;");
             f.WriteLine("    Case {");
-            foreach (var exc in Excitations)
+            foreach (var exc in sc.Excitations)
             {
-                f.WriteLine($"      {{ Region {exc.Region.Name}; Value {exc.Value}; }}");
+                f.WriteLine($"      {{ Region {exc.Terminal.EntityGroup.Name}; Value {exc.Value}; }}");
             }
             f.WriteLine("    }");
             f.WriteLine("  }");

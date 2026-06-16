@@ -58,19 +58,46 @@ namespace TfmrLib.FEM
 
         private void WriteMFEMFile()
         {
+            // The solver resolves a relative "mesh" path relative to the case.json's own
+            // directory, which is not necessarily where the mesh lives (e.g. a build-once /
+            // solve-many flow writes one mesh but a per-scenario case.json in a subfolder).
+            // Emit an absolute path so it resolves regardless of the JSON's location, and
+            // use forward slashes so the string needs no backslash escaping in JSON.
+            var meshPath = MeshPath;
+            if (!string.IsNullOrEmpty(meshPath))
+                meshPath = Path.GetFullPath(meshPath).Replace('\\', '/');
+
             // Write out JSON file for the MFEM-ElectroMag solver
             using (var stream = new StreamWriter(Filename))
             {
                 stream.WriteLine("{");
                 stream.WriteLine("\t\"simulation\": {");
-                stream.WriteLine("\t\t\"type\": \"electrostatics\",");
-                stream.WriteLine($"\t\t\"mesh\": \"{MeshFile}\",");
+                stream.WriteLine("\t\t\"physics_type\": \"electrostatics\",");
+                stream.WriteLine($"\t\t\"mesh\": \"{meshPath}\",");
                 stream.WriteLine("\t\t\"order\": 2,");
-                stream.WriteLine("\t\t\"axisymmetric\": true,");
+                stream.WriteLine($"\t\t\"geometry_type\": \"{GeometryType.ToString().ToLower()}\",");
                 stream.WriteLine("\t\t\"solver_tolerance\": 1e-12,");
                 stream.WriteLine("\t\t\"solver_max_iter\": 2000,");
-                stream.WriteLine("\t\t\"solver_print_level\": 1");
+                stream.WriteLine("\t\t\"solver_print_level\": 1,");
+                stream.WriteLine("\t\t\"output_gmsh\": true");
                 stream.WriteLine("\t},");
+                stream.WriteLine("\t\"entity_groups\": [");
+                foreach (var group in EntityGroups)
+                {
+                    stream.WriteLine("\t{");
+                    stream.WriteLine($"\t\t\"name\": \"{group.Name}\",");
+                    stream.WriteLine($"\t\t\"dim\": {group.Dimension},");
+                    stream.WriteLine($"\t\t\"attribute_ids\": [{string.Join(',', group.AttributeIds)}]");
+                    if (group != EntityGroups[^1])
+                    {
+                        stream.WriteLine("\t},");
+                    }
+                    else
+                    {
+                        stream.WriteLine("\t}");
+                    }
+                }
+                stream.WriteLine("\t],");
                 stream.WriteLine("\t\"materials\": [");
                 foreach (var material in Materials)
                 {
@@ -97,7 +124,7 @@ namespace TfmrLib.FEM
                 {
                     stream.WriteLine("\t{");
                     stream.WriteLine($"\t\t\"name\": \"{region.Name}\",");
-                    stream.WriteLine($"\t\t\"attribute_ids\": [{string.Join(',', region.Tags)}],");
+                    stream.WriteLine($"\t\t\"entity_group\": \"{region.EntityGroupName}\",");
                     stream.WriteLine($"\t\t\"material\": {Materials.IndexOf(region.Material)+1}");
                     if (region != Regions.Last())
                     {
@@ -114,7 +141,7 @@ namespace TfmrLib.FEM
                 {
                     stream.WriteLine("\t{");
                     stream.WriteLine($"\t\t\"name\": \"{bc.Name}\",");
-                    stream.WriteLine($"\t\t\"attributes\": [{string.Join(',', bc.Tags)}],");
+                    stream.WriteLine($"\t\t\"entity_group\": \"{bc.EntityGroupName}\",");
                     if (bc is NeumannBoundaryCondition neumann_bc)
                     {
                         stream.WriteLine($"\t\t\"type\": \"Neumann\",");
@@ -134,6 +161,54 @@ namespace TfmrLib.FEM
                         stream.WriteLine("\t}");
                     }
                 }
+                stream.WriteLine("\t],");
+                stream.WriteLine("\t\"terminals\": [");
+                foreach (var term in Terminals)
+                {
+                    stream.WriteLine("\t{");
+                    stream.WriteLine($"\t\t\"name\": \"{term.Name}\",");
+                    stream.WriteLine($"\t\t\"entity_group\": \"{term.EntityGroup.Name}\"");
+                    
+                    if (term != Terminals.Last())
+                    {
+                        stream.WriteLine("\t},");
+                    }
+                    else
+                    {
+                        stream.WriteLine("\t}");
+                    }
+                }
+                stream.WriteLine("\t],");
+                stream.WriteLine("\t\"scenarios\": [");
+                foreach (var scenario in Scenarios)
+                {
+                    stream.WriteLine("\t{");
+                    stream.WriteLine($"\t\t\"name\": \"{scenario.Name}\",");
+                    stream.WriteLine($"\t\t\"excitations\": [");
+                    foreach (var exc in scenario.Excitations)
+                    {
+                        stream.WriteLine("\t\t{");
+                        stream.WriteLine($"\t\t\t\"terminal\": \"{exc.Terminal.Name}\",");
+                        stream.WriteLine($"\t\t\t\"value\": {exc.Value}");
+                        if (exc != scenario.Excitations.Last())
+                        {
+                            stream.WriteLine("\t\t},");
+                        }
+                        else
+                        {
+                            stream.WriteLine("\t\t}");
+                        }
+                    }
+                    stream.WriteLine("\t\t]");
+                    if (scenario != Scenarios.Last())
+                    {
+                        stream.WriteLine("\t},");
+                    }
+                    else
+                    {
+                        stream.WriteLine("\t}");
+                    }
+                }
                 stream.WriteLine("\t]");
                 stream.WriteLine("}");
             }
@@ -145,17 +220,6 @@ namespace TfmrLib.FEM
             Console.WriteLine($"Using MFEM-ElectroMag at: {mfem_exe}");
 
             WriteMFEMFile();
-
-            // Default results path: solver writes "<mesh-basename>.results.msh" next to
-            // the input mesh, not next to the case JSON. Fall back to the case file's
-            // directory only if MeshFile isn't set.
-            if (string.IsNullOrEmpty(ResultsFile))
-            {
-                var basePath = !string.IsNullOrEmpty(MeshFile)
-                    ? Path.ChangeExtension(MeshFile, null)
-                    : Path.ChangeExtension(Filename, null);
-                ResultsFile = basePath + ".results.msh";
-            }
 
             string args = $"{Filename}";
 
@@ -276,8 +340,8 @@ namespace TfmrLib.FEM
             if (!File.Exists(ResultsFile))
             {
                 // Try a few common alternates next to the mesh file before giving up.
-                var meshDir = !string.IsNullOrEmpty(MeshFile)
-                    ? Path.GetDirectoryName(MeshFile)
+                var meshDir = !string.IsNullOrEmpty(MeshPath)
+                    ? Path.GetDirectoryName(MeshPath)
                     : Path.GetDirectoryName(ResultsFile);
                 string? found = null;
                 if (!string.IsNullOrEmpty(meshDir) && Directory.Exists(meshDir))

@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public class Source
+    public class Scenario : INamed
     {
-        public Region Region { get; set; }
-        public double Value { get; set; }
+        public string Name { get; init; }
+        public List<Excitation> Excitations { get; set; }
     }
 }

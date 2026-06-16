@@ -110,7 +110,7 @@ namespace TfmrLib
 
             var fem = new GetDPAxiMagProblem();
             fem.Order = order;
-            fem.MeshFile = meshFile;
+            fem.MeshPath = meshFile;
             fem.Filename = $"./Results/{excitedTurn}/case.pro";
             fem.Frequency = freq;
 
@@ -138,9 +138,12 @@ namespace TfmrLib
             fem.Materials.Add(oil);
             fem.Materials.Add(paper);
             fem.Materials.Add(copper);
-            fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
-            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Axis", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") }, Potential = 0.0 });
-            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") }, Potential = 0.0 });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
+            fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "Axis", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Axis", EntityGroupName = "Axis", Potential = 0.0 });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
             int globalTurn = 0;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {
@@ -156,18 +159,22 @@ namespace TfmrLib
                             for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
                             {
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
-                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) }, Material = paper };
-                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) }, Material = copper };
+                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
+                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name, Material = copper };
+                                fem.EntityGroups.Add(groupIns);
+                                fem.EntityGroups.Add(groupCond);
                                 fem.Regions.Add(regionIns);
                                 fem.Regions.Add(regionCond);
-                                if (globalTurn == excitedTurn && localStrand == excitedStrand)
-                                {
-                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
-                                }
-                                else
-                                {
-                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
-                                }
+                                //if (globalTurn == excitedTurn && localStrand == excitedStrand)
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
+                                //}
+                                //else
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
+                                //}
                             }
                         }
                     }
@@ -463,7 +470,7 @@ namespace TfmrLib
             
             var fem = new GetDPAxiElecProblem();
             fem.Order = order;
-            fem.MeshFile = meshFile;
+            fem.MeshPath = meshFile;
             fem.Filename = $"./Results/{excitedTurn}/case.pro";
 
             var oil = new Material("Oil")
@@ -487,16 +494,16 @@ namespace TfmrLib
             fem.Materials.Add(oil);
             fem.Materials.Add(paper);
             //fem.Materials.Add(conductor);
-            fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
+            fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
             if (tfmr.Core.CoreLegRadius_mm > 0)
             {
-                fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") }, Potential = 0.0 });
+                fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", EntityGroupName = "CoreLeg", Potential = 0.0 });
             }
             else
             {
-                fem.BoundaryConditions.Add(new NeumannBoundaryCondition() { Name = "Axis", Tags = new List<int>() {tfmr.TagManager.GetTagByString("CoreLeg") }, Flux = 0.0 });
+                fem.BoundaryConditions.Add(new NeumannBoundaryCondition() { Name = "Axis", EntityGroupName = "Axis", Flux = 0.0 });
             }
-            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
             int globalTurn = 0;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {
@@ -512,19 +519,23 @@ namespace TfmrLib
                             for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
                             {
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
-                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) }, Material = paper };
-                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
+                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
+                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name };
+                                fem.EntityGroups.Add(groupIns);
+                                fem.EntityGroups.Add(groupCond);
                                 fem.Regions.Add(regionIns);
                                 fem.Regions.Add(regionCond);
                                 
-                                if (globalTurn == excitedTurn && localStrand == excitedStrand)
-                                {
-                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
-                                }
-                                else
-                                {
-                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
-                                }
+                                //if (globalTurn == excitedTurn && localStrand == excitedStrand)
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
+                                //}
+                                //else
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
+                                //}
                             }
                         }
                     }

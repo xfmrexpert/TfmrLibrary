@@ -6,14 +6,30 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
+    public enum GeometryType
+    {
+        Planar = 0,
+        Axisymmetric = 1
+    }
+
+    public enum AnalysisType
+    {
+        Field = 0,
+        CouplingMatrix = 1
+    }
+
     public class FEMProblem
     {
-        public string MeshFile { get; set; }
+        public GeometryType GeometryType { get; set; } = GeometryType.Planar;
+        public AnalysisType AnalysisType { get; set; } = AnalysisType.Field;
+        
+        public string MeshPath { get; set; }
+        public NamedCollection<EntityGroup> EntityGroups { get; set; } = new NamedCollection<EntityGroup>();
         public List<Material> Materials { get; set; } = new List<Material>();
         public List<Region> Regions { get; set; } = new List<Region>();
+        public List<Terminal> Terminals { get; set; } = new List<Terminal>(); 
         public List<BoundaryCondition> BoundaryConditions { get; set; } = new List<BoundaryCondition>();
-        public List<Source> Sources { get; set; } = new List<Source>(); // Sources are for things like current density or charge density (right-hand side terms)
-        public List<Excitation> Excitations { get; set; } = new List<Excitation>(); // Excitations apply to ports or regions with prescribed values like current or voltage
+        public List<Scenario> Scenarios { get; set; } = new List<Scenario>();
 
         /// <summary>
         /// Populated by <see cref="Solve"/> in derived classes once a solution has been

@@ -67,7 +67,7 @@ namespace TfmrLib.FEM
             return null;
         }
 
-        protected virtual void WriteGetDPFile()
+        protected virtual void WriteGetDPFile(Scenario sc)
         {
             Console.WriteLine($"Writing GetDP file to {Filename}");
             // Check if directory exists, create if not
@@ -84,24 +84,29 @@ namespace TfmrLib.FEM
             f.WriteLine("Group{");
             foreach (var region in Regions)
             {
-                f.WriteLine($"  {region.Name} = Region[{{{string.Join(", ", region.Tags)}}}];");
+                var regionGroup = EntityGroups[region.Name];
+                f.WriteLine($"  {region.Name} = Region[{{{string.Join(", ", regionGroup.AttributeIds)}}}];");
             }
             foreach (var bc in BoundaryConditions)
             {
-                f.WriteLine($"  {bc.Name} = Region[{{{string.Join(", ", bc.Tags)}}}];");
+                var bcGroup = EntityGroups[bc.Name];
+                f.WriteLine($"  {bc.Name} = Region[{{{string.Join(", ", bcGroup.AttributeIds)}}}];");
             }
             // Material groups (aggregate tags of all regions sharing the material)
             foreach (var mat in Materials)
             {
-                var tags = Regions
+                var entity_groups = Regions
                            .Where(r => r.Material == mat)
-                           .SelectMany(r => r.Tags)
+                           .Select(r => r.EntityGroupName)
                            .Distinct()
                            .ToList();
-                if (tags.Count > 0)
+                if (entity_groups.Count > 0)
+                {
+                    var tags = entity_groups.SelectMany(g => EntityGroups[g].AttributeIds);
                     f.WriteLine($"  {mat.Name} = Region[{{{string.Join(", ", tags)}}}];");
+                }
             }
-            f.WriteLine($"  ProblemDomain = Region[{{{string.Join(", ", Regions.Where(r => r.Material is not null).SelectMany(r => r.Tags).Distinct())}}}];");
+            f.WriteLine($"  ProblemDomain = Region[{{{string.Join(", ", Regions.Where(r => r.Material is not null).SelectMany(r => EntityGroups[r.EntityGroupName].AttributeIds).Distinct())}}}];");
             f.WriteLine("}");
 
 
@@ -135,12 +140,21 @@ namespace TfmrLib.FEM
 
         public override void Solve()
         {
+            foreach (var sc in Scenarios)
+            {
+                Console.WriteLine($"Solving scenario: {sc.Name}");
+                SolveScenario(sc);
+            }
+        }
+
+        protected void SolveScenario(Scenario sc)
+        {
             string mygetdp = FindGetDPExecutable();
             Console.WriteLine($"Using getdp at: {mygetdp}");
 
-            WriteGetDPFile();
+            WriteGetDPFile(sc);
 
-            string args = $"{Filename} -msh {MeshFile} -solve {formulation} -pos {postop} -v 5";
+            string args = $"{Filename} -msh {MeshPath} -solve {formulation} -pos {postop} -v 5";
 
             if (ShowInTerminal)
             {

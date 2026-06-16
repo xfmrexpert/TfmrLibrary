@@ -10,9 +10,9 @@ namespace TfmrLib.FEM
             postop = "dyn";
         }
 
-        protected override void WriteGetDPFile()
+        protected override void WriteGetDPFile(Scenario sc)
         {
-            base.WriteGetDPFile();
+            base.WriteGetDPFile(sc);
             Console.WriteLine($"Appending Magnetodynamics2D_av definitions to {Filename}");
             var f = File.AppendText(Filename);
             f.WriteLine();
@@ -27,7 +27,8 @@ namespace TfmrLib.FEM
                 .ToList();
             if (conductingRegions.Count == 0)
                 throw new Exception("No conducting regions defined (regions with a 'sigma' property > 0)");
-            f.WriteLine($"  Vol_C_Mag = Region[{{{string.Join(", ", conductingRegions.SelectMany(r => r.Tags).Distinct())}}}];");
+            var conductingRegionGroups = conductingRegions.Select(r => EntityGroups[r.Name]);
+            f.WriteLine($"  Vol_C_Mag = Region[{{{string.Join(", ", conductingRegionGroups.SelectMany(g => g.AttributeIds).Distinct())}}}];");
             f.WriteLine($"  ConductorList = Region[{{{string.Join(", ", conductingRegions.Select(r => r.Name))}}}];");
             f.WriteLine("}");
             f.WriteLine();
@@ -63,9 +64,9 @@ namespace TfmrLib.FEM
             f.WriteLine("  { Name Current_2D;");
             f.WriteLine("    Case {");
             f.WriteLine("      // Amplitude of the phasor is set to \"Current\"");
-            foreach (var exc in Excitations)
+            foreach (var exc in sc.Excitations)
             {
-                f.WriteLine($"      {{ Region {exc.Region.Name}; Value {exc.Value}; }}");
+                f.WriteLine($"      {{ Region {exc.Terminal.EntityGroup.Name}; Value {exc.Value}; }}");
             }
             f.WriteLine("    }");
             f.WriteLine("  }");
