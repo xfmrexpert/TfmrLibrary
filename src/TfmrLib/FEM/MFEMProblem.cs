@@ -14,6 +14,16 @@ namespace TfmrLib.FEM
         public bool ShowInTerminal { get; set; } = false;
 
         /// <summary>
+        /// Optional adaptive mesh refinement (AMR) configuration. When non-null and
+        /// <see cref="AmrSettings.Enabled"/> is true, an <c>"amr"</c> block is written
+        /// into the <c>"simulation"</c> section of the solver's case.json so the
+        /// MFEM-ElectroMag solver runs its estimate→mark→refine→re-solve loop and writes
+        /// the final refined mesh + fields back through the usual results.msh contract.
+        /// Null (the default) reproduces the previous single-solve behaviour exactly.
+        /// </summary>
+        public AmrSettings? Amr { get; set; }
+
+        /// <summary>
         /// Path the solver will write results to (Gmsh MSH 2.2 ASCII, with $NodeData /
         /// $ElementNodeData / $ElementData views). Defaults to
         /// "&lt;MeshFile-without-extension&gt;.results.msh" (the solver writes its output
@@ -79,7 +89,26 @@ namespace TfmrLib.FEM
                 stream.WriteLine("\t\t\"solver_tolerance\": 1e-12,");
                 stream.WriteLine("\t\t\"solver_max_iter\": 2000,");
                 stream.WriteLine("\t\t\"solver_print_level\": 1,");
-                stream.WriteLine("\t\t\"output_gmsh\": true");
+
+                // The "amr" block is emitted only when adaptive refinement is requested,
+                // so older solver builds (and the default config) see the exact JSON they
+                // saw before. When present, "output_gmsh" gains a trailing comma so the
+                // block remains valid JSON.
+                bool emitAmr = Amr is { Enabled: true };
+                stream.WriteLine($"\t\t\"output_gmsh\": true{(emitAmr ? "," : "")}");
+                if (emitAmr)
+                {
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    var amr = Amr!;
+                    stream.WriteLine("\t\t\"amr\": {");
+                    stream.WriteLine("\t\t\t\"enabled\": true,");
+                    stream.WriteLine($"\t\t\t\"max_iterations\": {amr.MaxIterations.ToString(inv)},");
+                    stream.WriteLine($"\t\t\t\"max_dofs\": {amr.MaxDofs.ToString(inv)},");
+                    stream.WriteLine($"\t\t\t\"error_fraction\": {amr.ErrorFraction.ToString("R", inv)},");
+                    stream.WriteLine($"\t\t\t\"error_tolerance\": {amr.ErrorTolerance.ToString("R", inv)},");
+                    stream.WriteLine($"\t\t\t\"conforming\": {(amr.Conforming ? "true" : "false")}");
+                    stream.WriteLine("\t\t}");
+                }
                 stream.WriteLine("\t},");
                 stream.WriteLine("\t\"entity_groups\": [");
                 foreach (var group in EntityGroups)
@@ -385,5 +414,41 @@ namespace TfmrLib.FEM
             }
         }
 
+    }
+
+    /// <summary>
+    /// Configuration for the MFEM-ElectroMag solver's adaptive mesh refinement (AMR)
+    /// loop. The solver estimates a per-element error (Zienkiewicz–Zhu on the recovered
+    /// E-field), marks the worst elements, performs a <b>conforming</b> triangular
+    /// refinement (no hanging nodes), and re-solves until a stopping criterion is met.
+    /// Conforming refinement keeps the returned mesh compatible with the existing
+    /// results consumers (triangle locator, P1 field sampler, mesh renderer) without
+    /// any changes on the C# side.
+    /// </summary>
+    public sealed class AmrSettings
+    {
+        /// <summary>Master switch. When false, no <c>"amr"</c> block is emitted and the
+        /// solver performs its usual single solve on the supplied mesh.</summary>
+        public bool Enabled { get; set; } = false;
+
+        /// <summary>Maximum number of refine→re-solve iterations.</summary>
+        public int MaxIterations { get; set; } = 5;
+
+        /// <summary>Stop once the global degrees of freedom exceed this budget (safety
+        /// cap against runaway refinement). Non-positive disables the cap.</summary>
+        public long MaxDofs { get; set; } = 2_000_000;
+
+        /// <summary>Fraction of the total error used by the bulk (Dörfler) marking
+        /// strategy: mark the smallest set of elements whose summed error reaches this
+        /// fraction of the total. Range (0, 1]; smaller refines more conservatively.</summary>
+        public double ErrorFraction { get; set; } = 0.7;
+
+        /// <summary>Optional absolute stopping tolerance on the global estimated error.
+        /// Non-positive means "ignore" (rely on iteration / DOF caps instead).</summary>
+        public double ErrorTolerance { get; set; } = 0.0;
+
+        /// <summary>Require conforming (hanging-node-free) refinement. Must remain true
+        /// for the current C# results pipeline; exposed so the contract is explicit.</summary>
+        public bool Conforming { get; set; } = true;
     }
 }
