@@ -349,7 +349,20 @@ namespace TfmrLib.FEM
                 if (return_code > 0)
                     Console.WriteLine(sb.ToString());
                 if (return_code != 0 && return_code != -1)
-                    throw new Exception($"Failed to run MFEM-ElectroMag (exit {return_code})");
+                {
+                    // Surface the solver's own diagnostics in the exception, not just the
+                    // exit code. The real cause (e.g. "Invalid mesh topology. Interior edge
+                    // found between 2D elements ...") is in the captured stdout/stderr; without
+                    // it the caller only sees "exit 1" and has to dig through the console.
+                    var detail = sb.ToString().TrimEnd();
+                    const int maxTail = 4000;
+                    if (detail.Length > maxTail)
+                        detail = "...(truncated)..." + Environment.NewLine + detail[^maxTail..];
+                    var message = $"Failed to run MFEM-ElectroMag (exit {return_code}).";
+                    if (detail.Length > 0)
+                        message += $"{Environment.NewLine}--- solver output ---{Environment.NewLine}{detail}";
+                    throw new Exception(message);
+                }
             }
 
             TryLoadSolution();
