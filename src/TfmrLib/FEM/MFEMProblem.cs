@@ -1,17 +1,34 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Diagnostics;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
+    public enum MFEMProgressEventType
+    {
+        Operation,
+        Message
+    }
+
+    public sealed record MFEMProgressEvent(
+        MFEMProgressEventType EventType,
+        string? Name = null,
+        string? State = null,
+        double? ElapsedSeconds = null,
+        string? Level = null,
+        string? Message = null);
+
     public class MFEMProblem : FEMProblem
     {
         public string Filename { get; set; } = "case.json";
         public bool ShowInTerminal { get; set; } = false;
+
+        public event Action<MFEMProgressEvent>? ProgressChanged;
 
         /// <summary>
         /// Optional adaptive mesh refinement (AMR) configuration. When non-null and
@@ -307,65 +324,153 @@ namespace TfmrLib.FEM
                 return;
             }
 
-            // Non-terminal (background) mode with simple timeout + live output to console
-            int return_code = -999;
-            object returnCodeLock = new();
-            while (return_code < 0)
+            using var process = new Process();
+            process.StartInfo.FileName = mfem_exe;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.ArgumentList.Add(Filename);
+            process.StartInfo.ArgumentList.Add("--machine-readable");
+
+            var output = new StringBuilder();
+            var errors = new List<string>();
+            var stderr = new StringBuilder();
+
+            Console.WriteLine($"Running (background): {mfem_exe} {Filename} --machine-readable");
+            process.Start();
+
+            Task stdoutTask = ReadStandardOutputAsync(process.StandardOutput, output, errors);
+            Task stderrTask = ReadStandardErrorAsync(process.StandardError, stderr);
+            Task exitTask = process.WaitForExitAsync();
+
+            if (!exitTask.Wait(TimeSpan.FromMinutes(6)))
             {
-                var sb = new StringBuilder();
-                using var p = new Process();
-                p.StartInfo.FileName = mfem_exe;
-                p.StartInfo.Arguments = args;
-                p.StartInfo.CreateNoWindow = true;
-                p.StartInfo.UseShellExecute = false;
-                p.StartInfo.RedirectStandardOutput = true;
-                p.StartInfo.RedirectStandardError = true;
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
+                process.WaitForExit();
+                Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
+                throw new TimeoutException("MFEM-ElectroMag was terminated after exceeding the six-minute timeout.");
+            }
 
-                p.OutputDataReceived += (s, a) => { if (a.Data != null) { Console.WriteLine(a.Data); sb.AppendLine(a.Data); } };
-                p.ErrorDataReceived += (s, a) => { if (a.Data != null) { Console.WriteLine(a.Data); sb.AppendLine(a.Data); } };
+            Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
 
-                var timer = new System.Timers.Timer(360000);
-                timer.Elapsed += (s, e) =>
-                {
-                    if (!p.HasExited)
-                    {
-                        try { p.Kill(true); } catch { }
-                        Console.WriteLine("MFEM-ElectroMag killed (timeout).");
-                        lock (returnCodeLock) return_code = -1;
-                        timer.Stop();
-                    }
-                };
+            if (process.ExitCode != 0)
+            {
+                string detail = errors.Count > 0
+                    ? string.Join(Environment.NewLine, errors)
+                    : stderr.ToString().TrimEnd();
 
-                Console.WriteLine("Running (background): " + mfem_exe + " " + args);
-                p.Start();
-                timer.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
-                p.WaitForExit();
-                timer.Stop();
-                timer.Dispose();
+                if (detail.Length == 0)
+                    detail = output.ToString().TrimEnd();
 
-                return_code = p.ExitCode;
-                if (return_code > 0)
-                    Console.WriteLine(sb.ToString());
-                if (return_code != 0 && return_code != -1)
-                {
-                    // Surface the solver's own diagnostics in the exception, not just the
-                    // exit code. The real cause (e.g. "Invalid mesh topology. Interior edge
-                    // found between 2D elements ...") is in the captured stdout/stderr; without
-                    // it the caller only sees "exit 1" and has to dig through the console.
-                    var detail = sb.ToString().TrimEnd();
-                    const int maxTail = 4000;
-                    if (detail.Length > maxTail)
-                        detail = "...(truncated)..." + Environment.NewLine + detail[^maxTail..];
-                    var message = $"Failed to run MFEM-ElectroMag (exit {return_code}).";
-                    if (detail.Length > 0)
-                        message += $"{Environment.NewLine}--- solver output ---{Environment.NewLine}{detail}";
-                    throw new Exception(message);
-                }
+                const int maxTail = 4000;
+                if (detail.Length > maxTail)
+                    detail = "...(truncated)..." + Environment.NewLine + detail[^maxTail..];
+
+                string message = $"Failed to run MFEM-ElectroMag (exit {process.ExitCode}).";
+                if (detail.Length > 0)
+                    message += $"{Environment.NewLine}{detail}";
+                throw new Exception(message);
             }
 
             TryLoadSolution();
+        }
+
+        private async Task ReadStandardOutputAsync(
+            StreamReader reader,
+            StringBuilder output,
+            List<string> errors)
+        {
+            while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
+            {
+                Console.WriteLine(line);
+                output.AppendLine(line);
+
+                if (!TryParseProgress(line, out MFEMProgressEvent? progress))
+                    continue;
+
+                if (progress.Level == "error" && !string.IsNullOrWhiteSpace(progress.Message))
+                    errors.Add(progress.Message);
+
+                ProgressChanged?.Invoke(progress);
+            }
+        }
+
+        private static async Task ReadStandardErrorAsync(StreamReader reader, StringBuilder stderr)
+        {
+            while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
+            {
+                Console.WriteLine(line);
+                stderr.AppendLine(line);
+            }
+        }
+
+        private static bool TryParseProgress(string line, out MFEMProgressEvent? progress)
+        {
+            progress = null;
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(line);
+                JsonElement root = document.RootElement;
+                if (!root.TryGetProperty("event", out JsonElement eventElement) ||
+                    eventElement.ValueKind != JsonValueKind.String)
+                    return false;
+
+                switch (eventElement.GetString())
+                {
+                    case "operation":
+                        if (!TryGetString(root, "name", out string? name) ||
+                            !TryGetString(root, "state", out string? state) ||
+                            state is not ("started" or "completed" or "failed"))
+                            return false;
+
+                        double? elapsedSeconds = null;
+                        if (root.TryGetProperty("elapsed_seconds", out JsonElement elapsedElement) &&
+                            elapsedElement.ValueKind == JsonValueKind.Number &&
+                            elapsedElement.TryGetDouble(out double elapsed))
+                            elapsedSeconds = elapsed;
+
+                        progress = new MFEMProgressEvent(
+                            MFEMProgressEventType.Operation,
+                            Name: name,
+                            State: state,
+                            ElapsedSeconds: elapsedSeconds);
+                        return true;
+
+                    case "message":
+                        if (!TryGetString(root, "level", out string? level) ||
+                            !TryGetString(root, "message", out string? message) ||
+                            level is not ("status" or "solver" or "diagnostic" or "warning" or "error"))
+                            return false;
+
+                        progress = new MFEMProgressEvent(
+                            MFEMProgressEventType.Message,
+                            Level: level,
+                            Message: message);
+                        return true;
+
+                    default:
+                        return false;
+                }
+            }
+            catch (JsonException exception)
+            {
+                Console.WriteLine($"Malformed MFEM-ElectroMag machine-readable output: {exception.Message}");
+                return false;
+            }
+        }
+
+        private static bool TryGetString(JsonElement element, string propertyName, out string? value)
+        {
+            value = null;
+            if (!element.TryGetProperty(propertyName, out JsonElement property) ||
+                property.ValueKind != JsonValueKind.String)
+                return false;
+
+            value = property.GetString();
+            return value != null;
         }
 
         private void TryLoadSolution()
