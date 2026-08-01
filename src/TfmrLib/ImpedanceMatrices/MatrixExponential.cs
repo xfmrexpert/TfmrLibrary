@@ -1,8 +1,6 @@
 ﻿// SPDX-License-Identifier: MIT
 
 using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Double;
-using MathNet.Numerics;
 using System.Numerics;
 using System.Diagnostics;
 using System.Text;
@@ -103,91 +101,108 @@ namespace MatrixExponential
     
         public static Matrix<Complex> Exponential(this Matrix<Complex> m)
         {
-            //PrintMatrix(m);
             if (m.RowCount != m.ColumnCount)
                 throw new ArgumentException("Matrix should be square");
 
-            if (m.RowCount == 0) 
+            if (m.RowCount == 0)
                 throw new ArgumentException("Zero-size matrix.");
 
-            Matrix<Complex> exp_m = null;
-
-            // if m is diagonal, then matrix exponential is equal to pointwise exponential
             if (m.IsDiagonal())
-                exp_m = Matrix<Complex>.Build.DenseOfDiagonalVector(m.Diagonal().PointwiseExp());
-            else
-            {
-                // unfortunately m is not diagonal
-                // so let's try to diagonalize it
-                bool diagonalization_failed = !m.IsSymmetric();
-                if (!diagonalization_failed) // if m is symmetric
-                {
-                    try
-                    {
-                        var evd = m.Evd();
-                        Matrix<Complex> expD = Matrix<Complex>.Build.DenseOfDiagonalVector(evd.D.Diagonal().PointwiseExp());
-                        exp_m = evd.EigenVectors * expD * (evd.EigenVectors.Inverse());
-                    }
-                    catch
-                    {
-                        diagonalization_failed = true;
-                    }
-                }
+                return Matrix<Complex>.Build.DenseOfDiagonalVector(m.Diagonal().PointwiseExp());
 
-                if (diagonalization_failed) // get here if m is not symmetric or if diagnolization fails
-                {
-                    // last hope: Padé approximation method
-                    // details could be found in 
-                    // M.Arioli, B.Codenotti, C.Fassino The Padé method for computing the matrix exponential // Linear Algebra and its Applications, 1996, V. 240, P. 111-130
-                    // https://www.sciencedirect.com/science/article/pii/0024379594001901
+            const double theta3 = 1.495585217958292e-2;
+            const double theta5 = 2.539398330063230e-1;
+            const double theta7 = 9.504178996162932e-1;
+            const double theta9 = 2.097847961257068;
+            const double theta13 = 5.371920351148152;
 
-                    int p = 5; // order of Padé 
+            double norm = m.L1Norm();
+            int squarings = norm > theta13
+                ? Math.Max(0, (int)Math.Ceiling(Math.Log2(norm / theta13)))
+                : 0;
+            Matrix<Complex> scaled = squarings == 0
+                ? m
+                : m * Math.ScaleB(1.0, -squarings);
+            double scaledNorm = squarings == 0 ? norm : norm * Math.ScaleB(1.0, -squarings);
 
-                    // high matrix norm may result in high roundoff errors, 
-                    // so first we have to find normalizing coefficient such that || m / norm_coeff || < 0.5
-                    // to reduce the following computations we set it norm_coeff = 2^k
+            Matrix<Complex> result = scaledNorm <= theta3
+                ? Pade3(scaled)
+                : scaledNorm <= theta5
+                    ? Pade5(scaled)
+                    : scaledNorm <= theta7
+                        ? Pade7(scaled)
+                        : scaledNorm <= theta9
+                            ? Pade9(scaled)
+                            : Pade13(scaled);
 
-                    double k = 0;
-                    double mNorm = m.L1Norm();
-                    if (mNorm > 0.5)
-                    {
-                        k = Math.Ceiling(Math.Log(mNorm) / Math.Log(2.0));
-                        m = m / Math.Pow(2.0, k);
-                    }
+            for (int i = 0; i < squarings; i++)
+                result = result * result;
 
-                    Matrix<Complex> N = Matrix<Complex>.Build.DenseIdentity(m.RowCount);
-                    Matrix<Complex> D = Matrix<Complex>.Build.DenseIdentity(m.RowCount);
-                    Matrix<Complex> m_pow_j = m;
+            return result;
+        }
 
-                    int q = p; // here we use symmetric approximation, but in general p may not be equal to q.
-                    for (int j = 1; j <= Math.Max(p, q); j++)
-                    {
-                        if (j > 1)
-                            m_pow_j = m_pow_j * m;
-                        if (j <= p)
-                            N = N + SpecialFunctions.Factorial(p + q - j) * SpecialFunctions.Factorial(p) / SpecialFunctions.Factorial(p + q) / SpecialFunctions.Factorial(j) / SpecialFunctions.Factorial(p - j) * m_pow_j;
-                        if (j <= q)
-                            D = D + Math.Pow(-1.0, j) * SpecialFunctions.Factorial(p + q - j) * SpecialFunctions.Factorial(q) / SpecialFunctions.Factorial(p + q) / SpecialFunctions.Factorial(j) / SpecialFunctions.Factorial(q - j) * m_pow_j;
-                    }
-                    if (D.RowCount != D.ColumnCount) throw new ArgumentException("Matrix exponential requires square matrix.");
-                    if (D.RowCount == 0) throw new ArgumentException("Zero-size matrix.");
-                    
-                    //Console.WriteLine($"[MKL] m: {D.GetType().Name}  {D.RowCount}x{D.ColumnCount}");
+        private static Matrix<Complex> Pade3(Matrix<Complex> matrix)
+        {
+            Matrix<Complex> identity = Matrix<Complex>.Build.DenseIdentity(matrix.RowCount);
+            Matrix<Complex> a2 = matrix * matrix;
+            Matrix<Complex> u = matrix * (a2 + 60.0 * identity);
+            Matrix<Complex> v = 12.0 * a2 + 120.0 * identity;
+            return SolvePade(u, v);
+        }
 
-                    // calculate inv(D)*N with LU decomposition
-                    exp_m = D.LU().Solve(N);
+        private static Matrix<Complex> Pade5(Matrix<Complex> matrix)
+        {
+            Matrix<Complex> identity = Matrix<Complex>.Build.DenseIdentity(matrix.RowCount);
+            Matrix<Complex> a2 = matrix * matrix;
+            Matrix<Complex> a4 = a2 * a2;
+            Matrix<Complex> u = matrix * (a4 + 420.0 * a2 + 15120.0 * identity);
+            Matrix<Complex> v = 30.0 * a4 + 3360.0 * a2 + 30240.0 * identity;
+            return SolvePade(u, v);
+        }
 
-                    // denormalize if need
-                    if (k > 0)
-                    {
-                        for (int i = 0; i < k; i++)
-                        {
-                            exp_m = exp_m * exp_m;
-                        }
-                    }
-                }
-            }
-            return exp_m;
+        private static Matrix<Complex> Pade7(Matrix<Complex> matrix)
+        {
+            Matrix<Complex> identity = Matrix<Complex>.Build.DenseIdentity(matrix.RowCount);
+            Matrix<Complex> a2 = matrix * matrix;
+            Matrix<Complex> a4 = a2 * a2;
+            Matrix<Complex> a6 = a4 * a2;
+            Matrix<Complex> u = matrix * (a6 + 1512.0 * a4 + 277200.0 * a2 + 8648640.0 * identity);
+            Matrix<Complex> v = 56.0 * a6 + 25200.0 * a4 + 1995840.0 * a2 + 17297280.0 * identity;
+            return SolvePade(u, v);
+        }
+
+        private static Matrix<Complex> Pade9(Matrix<Complex> matrix)
+        {
+            Matrix<Complex> identity = Matrix<Complex>.Build.DenseIdentity(matrix.RowCount);
+            Matrix<Complex> a2 = matrix * matrix;
+            Matrix<Complex> a4 = a2 * a2;
+            Matrix<Complex> a6 = a4 * a2;
+            Matrix<Complex> a8 = a4 * a4;
+            Matrix<Complex> u = matrix * (a8 + 3960.0 * a6 + 2162160.0 * a4 + 302702400.0 * a2 + 8821612800.0 * identity);
+            Matrix<Complex> v = 90.0 * a8 + 110880.0 * a6 + 30270240.0 * a4 + 2075673600.0 * a2 + 17643225600.0 * identity;
+            return SolvePade(u, v);
+        }
+
+        private static Matrix<Complex> Pade13(Matrix<Complex> matrix)
+        {
+            Matrix<Complex> identity = Matrix<Complex>.Build.DenseIdentity(matrix.RowCount);
+            Matrix<Complex> a2 = matrix * matrix;
+            Matrix<Complex> a4 = a2 * a2;
+            Matrix<Complex> a6 = a4 * a2;
+            Matrix<Complex> u = matrix *
+                (a6 * (a6 + 16380.0 * a4 + 40840800.0 * a2) +
+                 33522128640.0 * a6 + 10559470521600.0 * a4 +
+                 1187353796428800.0 * a2 + 32382376266240000.0 * identity);
+            Matrix<Complex> v =
+                a6 * (182.0 * a6 + 960960.0 * a4 + 1323241920.0 * a2) +
+                670442572800.0 * a6 + 129060195264000.0 * a4 +
+                7771770303897600.0 * a2 + 64764752532480000.0 * identity;
+            return SolvePade(u, v);
+        }
+
+        private static Matrix<Complex> SolvePade(Matrix<Complex> u, Matrix<Complex> v)
+        {
+            return (v - u).LU().Solve(v + u);
         }
 
         public static bool IsDiagonal(this Matrix<Complex> m)
