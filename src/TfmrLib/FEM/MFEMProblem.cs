@@ -26,7 +26,6 @@ namespace TfmrLib.FEM
     public class MFEMProblem : FEMProblem
     {
         public string Filename { get; set; } = "case.json";
-        public bool ShowInTerminal { get; set; } = false;
 
         public event Action<MFEMProgressEvent>? ProgressChanged;
 
@@ -46,7 +45,7 @@ namespace TfmrLib.FEM
         /// "&lt;MeshFile-without-extension&gt;.results.msh" (the solver writes its output
         /// next to the input mesh, not next to the case JSON).
         /// </summary>
-        public string? ResultsFile { get; set; }
+        public string? ResultsPath { get; set; }
 
         /// <summary>
         /// Last error reported while loading the solver's output (or null on success).
@@ -65,24 +64,6 @@ namespace TfmrLib.FEM
             return "mfem-electromag";
         }
 
-        private string? FindTerminal()
-        {
-            string[] terminals = { "cosmic-term", "gnome-terminal", "xterm", "konsole" };
-            var pathEnv = Environment.GetEnvironmentVariable("PATH");
-            if (pathEnv != null)
-            {
-                foreach (var dir in pathEnv.Split(Path.PathSeparator))
-                {
-                    foreach (var term in terminals)
-                    {
-                        var candidate = Path.Combine(dir, term);
-                        if (File.Exists(candidate)) return candidate;
-                    }
-                }
-            }
-            return null;
-        }
-
         private void WriteMFEMFile()
         {
             // The solver resolves a relative "mesh" path relative to the case.json's own
@@ -99,10 +80,11 @@ namespace TfmrLib.FEM
             {
                 stream.WriteLine("{");
                 stream.WriteLine("\t\"simulation\": {");
-                stream.WriteLine("\t\t\"physics_type\": \"electrostatics\",");
+                stream.WriteLine($"\t\t\"physics_type\": \"{PhysicsType.ToString().ToLower()}\",");
+                stream.WriteLine($"\t\t\"analysis_type\": \"{AnalysisType.ToString().ToLower()}\",");
+                stream.WriteLine($"\t\t\"geometry_type\": \"{GeometryType.ToString().ToLower()}\",");
                 stream.WriteLine($"\t\t\"mesh\": \"{meshPath}\",");
                 stream.WriteLine("\t\t\"order\": 2,");
-                stream.WriteLine($"\t\t\"geometry_type\": \"{GeometryType.ToString().ToLower()}\",");
                 stream.WriteLine("\t\t\"solver_tolerance\": 1e-12,");
                 stream.WriteLine("\t\t\"solver_max_iter\": 2000,");
                 stream.WriteLine("\t\t\"solver_print_level\": 1,");
@@ -246,6 +228,22 @@ namespace TfmrLib.FEM
                         }
                     }
                     stream.WriteLine("\t\t]");
+                    if (AnalysisType == AnalysisType.CouplingMatrix)
+                    {
+                        stream.WriteLine("\t\t],");
+                        if (scenario.Frequency is FrequencySpec.Scalar scalar)
+                        {
+                            stream.WriteLine($"\t\t\"frequency\": {scalar.Value}");
+                        }
+                        else if (scenario.Frequency is FrequencySpec.Sweep sweep)
+                        {
+                            stream.WriteLine($"\t\t\"frequency\": {{\"scale\": \"{sweep.Scale}\", \"start\": {sweep.Start}, \"stop\": {sweep.Stop}, \"points\": {sweep.Points}}}");
+                        }
+                    }
+                    else
+                    {
+                        stream.WriteLine("\t\t]");
+                    }
                     if (scenario != Scenarios.Last())
                     {
                         stream.WriteLine("\t},");
@@ -268,61 +266,6 @@ namespace TfmrLib.FEM
             WriteMFEMFile();
 
             string args = $"{Filename}";
-
-            if (ShowInTerminal)
-            {
-                var term = FindTerminal() ?? throw new Exception("No terminal emulator found (gnome-terminal/xterm/konsole).");
-                var exitFile = Path.GetTempFileName();
-                try
-                {
-                    using var p = new Process();
-                    if (term.Contains("gnome-terminal"))
-                    {
-                        // Keep window open: capture exit code, then wait for Enter.
-                        // --wait lets our process block until the bash command (including read) finishes.
-                        p.StartInfo.FileName = term;
-                        p.StartInfo.Arguments =
-                            $"--wait -- bash -lc \"'{mfem_exe}' {args}; code=$?; echo $code > '{exitFile}'; " +
-                            "echo; echo 'MFEM-ElectroMag exited with code '$code'. Press Enter to close...'; read\"";
-                    }
-                    else if (term.Contains("xterm"))
-                    {
-                        p.StartInfo.FileName = term;
-                        p.StartInfo.Arguments =
-                            $"-e bash -lc \"'{mfem_exe}' {args}; code=$?; echo $code > '{exitFile}'; " +
-                            "echo; echo 'MFEM-ElectroMag exited with code '$code'. Press Enter to close...'; read\"";
-                    }
-                    else // konsole
-                    {
-                        // --noclose keeps window by default, but we still add a read for consistency
-                        p.StartInfo.FileName = term;
-                        p.StartInfo.Arguments =
-                            $"--noclose -e bash -lc \"'{mfem_exe}' {args}; code=$?; echo $code > '{exitFile}'; " +
-                            "echo; echo 'MFEM-ElectroMag exited with code '$code'. Press Enter to close...'; read\"";
-                    }
-                    p.StartInfo.UseShellExecute = false;
-                    Console.WriteLine("Launching MFEM-ElectroMag in terminal:");
-                    Console.WriteLine($"{mfem_exe} {args}");
-                    p.Start();
-                    p.WaitForExit();
-
-                    int exitCode = 0;
-                    if (File.Exists(exitFile))
-                    {
-                        var txt = File.ReadAllText(exitFile).Trim();
-                        if (!int.TryParse(txt, out exitCode))
-                            Console.WriteLine("Warning: could not parse exit code text: " + txt);
-                    }
-                    if (exitCode != 0)
-                        throw new Exception($"MFEM-ElectroMag exited with code {exitCode}");
-                }
-                finally
-                {
-                    try { if (File.Exists(exitFile)) File.Delete(exitFile); } catch { }
-                }
-                TryLoadSolution();
-                return;
-            }
 
             using var process = new Process();
             process.StartInfo.FileName = mfem_exe;
@@ -374,7 +317,6 @@ namespace TfmrLib.FEM
                 throw new Exception(message);
             }
 
-            TryLoadSolution();
         }
 
         private async Task ReadStandardOutputAsync(
@@ -473,65 +415,62 @@ namespace TfmrLib.FEM
             return value != null;
         }
 
-        private void TryLoadSolution()
+        public void TryLoadSolution()
         {
             LastLoadError = null;
 
-            if (string.IsNullOrEmpty(ResultsFile))
+            if (string.IsNullOrEmpty(ResultsPath))
             {
                 LastLoadError = "ResultsFile path was not set.";
                 Console.WriteLine(LastLoadError);
                 return;
             }
 
-            if (!File.Exists(ResultsFile))
+            if (!File.Exists(ResultsPath))
             {
-                // Try a few common alternates next to the mesh file before giving up.
-                var meshDir = !string.IsNullOrEmpty(MeshPath)
-                    ? Path.GetDirectoryName(MeshPath)
-                    : Path.GetDirectoryName(ResultsFile);
-                string? found = null;
-                if (!string.IsNullOrEmpty(meshDir) && Directory.Exists(meshDir))
-                {
-                    foreach (var pattern in new[] { "*.results.msh", "results*.msh", "*solution*.msh" })
-                    {
-                        var hits = Directory.GetFiles(meshDir, pattern);
-                        if (hits.Length > 0)
-                        {
-                            // Prefer the newest file.
-                            Array.Sort(hits, (a, b) => File.GetLastWriteTimeUtc(b).CompareTo(File.GetLastWriteTimeUtc(a)));
-                            found = hits[0];
-                            break;
-                        }
-                    }
-                }
-
-                if (found == null)
-                {
-                    LastLoadError = $"MFEM-ElectroMag did not produce results file '{ResultsFile}'.";
-                    Console.WriteLine(LastLoadError);
-                    return;
-                }
-
-                Console.WriteLine($"Results file '{ResultsFile}' not found; using '{found}' instead.");
-                ResultsFile = found;
+                Console.WriteLine($"Results file '{ResultsPath}' not found.");
+                return;
             }
 
             try
             {
-                Solution = FEMSolution.Load(ResultsFile);
-                Console.WriteLine($"Loaded FEM solution from {ResultsFile} " +
+                Solution = FEMSolution.Load(ResultsPath);
+                Console.WriteLine($"Loaded FEM solution from {ResultsPath} " +
                     $"(nodal views: {Solution.NodalScalars.Count}, " +
                     $"element-nodal views: {Solution.ElementNodalFields.Count}, " +
                     $"element views: {Solution.ElementFields.Count}).");
             }
             catch (Exception ex)
             {
-                LastLoadError = $"Failed to load FEM results from '{ResultsFile}': {ex.Message}";
+                LastLoadError = $"Failed to load FEM results from '{ResultsPath}': {ex.Message}";
                 Console.WriteLine(LastLoadError);
             }
         }
 
+        //TODO: This needs to be updated to loop through files for different frequencies
+        public double[,] ReadCouplingMatrix()
+        {
+            if (!File.Exists(ResultsPath + "\\inductance_matrix.csv"))
+                throw new FileNotFoundException($"Coupling matrix file '{ResultsPath}\\inductance_matrix.csv' not found.");
+
+            double[,] L_array = new double[Terminals.Count, Terminals.Count];
+
+            var resultFile = File.OpenText(ResultsPath + "\\inductance_matrix.csv");
+            int row = 0;
+            while (!resultFile.EndOfStream)
+            {
+                string? line = resultFile.ReadLine();
+                if (line == null) break;
+                var values = Array.ConvertAll(line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries), double.Parse);
+                for (int col = 0; col < values.Length && col < Terminals.Count; col++)
+                {
+                    L_array[row, col] = values[col];
+                }
+                row++;
+            }
+
+            return L_array;
+        }
     }
 
     /// <summary>

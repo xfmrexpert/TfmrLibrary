@@ -18,11 +18,19 @@ namespace TfmrLib.FEM
         CouplingMatrix = 1
     }
 
+    public enum PhysicsType
+    {
+        Electrostatics = 0,
+        Magnetostatics = 1,
+        Magnetoquasistatics = 2
+    }
+
     public class FEMProblem
     {
         public GeometryType GeometryType { get; set; } = GeometryType.Planar;
         public AnalysisType AnalysisType { get; set; } = AnalysisType.Field;
-        
+        public PhysicsType PhysicsType { get; set; } = PhysicsType.Electrostatics;
+
         public string MeshPath { get; set; }
         public NamedCollection<EntityGroup> EntityGroups { get; set; } = new NamedCollection<EntityGroup>();
         public List<Material> Materials { get; set; } = new List<Material>();

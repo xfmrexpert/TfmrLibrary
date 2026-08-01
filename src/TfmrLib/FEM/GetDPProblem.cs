@@ -1,9 +1,13 @@
+using MathNet.Numerics.Data.Text;
+using MathNet.Numerics.LinearAlgebra;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Diagnostics;
+using LinAlg = MathNet.Numerics.LinearAlgebra;
+using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
 namespace TfmrLib.FEM
 {
@@ -254,6 +258,325 @@ namespace TfmrLib.FEM
                 if (return_code != 0 && return_code != -1)
                     throw new Exception($"Failed to run getdp (exit {return_code})");
             }
+        }
+
+        public Matrix<double> Calc_Lmatrix_old(Transformer tfmr, double freq)
+        {
+            int order = 2; // Order of the finite element method
+
+            int total_conductors = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_conductors += wdg.NumConductors;
+            }
+
+            Matrix<double> L_getdp = Matrix<double>.Build.Dense(total_conductors, total_conductors);
+
+            int globalTurn = -1;
+            int globalConductor = -1;
+            foreach (var wdg in tfmr.Windings)
+            {
+                foreach (var seg in wdg.Segments)
+                {
+                    if (seg.Geometry != null)
+                    {
+                        var seg_geom = seg.Geometry;
+                        for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++)
+                        {
+                            globalTurn++;
+                            for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+                            {
+                                globalConductor++;
+                                var row = CalcInductance(tfmr, globalTurn, localStrand, freq, order);
+                                Console.WriteLine($"L matrix row for turn {globalTurn} strand {localStrand} at {freq.ToString("0.##E0")}Hz calculated.  Adding to row {globalConductor} of L matrix.");
+                                Console.WriteLine($"L row: {string.Join(", ", row.ToArray())}");
+
+                                // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
+                                lock (L_getdp)
+                                {
+                                    L_getdp.SetRow(globalConductor, row);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            L_getdp = L_getdp.Multiply(2 * Math.PI); // Need to multiply by 2pi to go from Henries per radian to Henries for a complete turn
+
+            Console.Write($"L total at {freq.ToString("0.##E0")}Hz: {(L_getdp * 2 * Math.PI).RowSums().Sum() / 1000.0}mH\n");
+
+            // globalConductor = 0;
+            // foreach (var wdg in tfmr.Windings)
+            // {
+            //     foreach (var seg in wdg.Segments)
+            //     {
+            //         if (seg.Geometry != null)
+            //         {
+            //             var seg_geom = seg.Geometry;
+            //             for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++, globalTurn++)
+            //             {
+            //                 for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+            //                 {
+            //                     globalConductor++;
+            //                     (double r, double z) = wdg.GetTurnMidpoint(localTurn);
+            //                     L_getdp[globalConductor, t2] = L_getdp[globalConductor, t2] / r;
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
+
+            DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
+            return L_getdp;
+        }
+
+        private Vector_d CalcInductance(Transformer tfmr, int excitedTurn, int excitedStrand, double freq, int order = 1)
+        {
+            Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {excitedTurn}");
+
+            var fem = new GetDPAxiMagProblem();
+            fem.Order = order;
+            //fem.MeshPath = meshFile;
+            fem.Filename = $"./Results/{excitedTurn}/case.pro";
+
+            fem.Frequency = freq;
+
+            var oil = new Material("Oil")
+            {
+                Properties = new Dictionary<string, double> {
+                { "mu_r", 1.0 } }
+            };
+
+            var paper = new Material("Paper")
+            {
+                Properties = new Dictionary<string, double> {
+                { "mu_r", 1.0 } }
+            };
+
+            var copper = new Material("Copper")
+            {
+                Properties = new Dictionary<string, double> {
+                { "mu_r", 1.0 },
+                { "sigma", 5.96e7 } }
+            };
+
+            fem.Materials.Add(oil);
+            fem.Materials.Add(paper);
+            fem.Materials.Add(copper);
+            fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
+            fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "Axis", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Axis", EntityGroupName = "Axis", Potential = 0.0 });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
+            int globalTurn = 0;
+            for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
+            {
+                var wdg = tfmr.Windings[wdgNum];
+                for (int segNum = 0; segNum < wdg.Segments.Count; segNum++)
+                {
+                    var seg = wdg.Segments[segNum];
+                    if (seg.Geometry != null)
+                    {
+                        var seg_geom = seg.Geometry;
+                        for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++, globalTurn++)
+                        {
+                            for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+                            {
+                                var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
+                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
+                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name, Material = copper };
+                                fem.EntityGroups.Add(groupIns);
+                                fem.EntityGroups.Add(groupCond);
+                                fem.Regions.Add(regionIns);
+                                fem.Regions.Add(regionCond);
+                                //if (globalTurn == excitedTurn && localStrand == excitedStrand)
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
+                                //}
+                                //else
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
+                                //}
+                            }
+                        }
+                    }
+                }
+            }
+
+            fem.Solve();
+
+            var resultFile = File.OpenText($"./Results/{excitedTurn}/out.txt");
+            string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
+            var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), double.Parse);
+
+            var L = Vector_d.Build.Dense(L_array);
+            resultFile.Close();
+
+            return L;
+        }
+
+        public Matrix<double> Calc_Cmatrix_old(Transformer tfmr)
+        {
+            //GenerateMesh(tfmr);
+
+            int total_conductors = 0;
+            foreach (Winding wdg in tfmr.Windings)
+            {
+                total_conductors += wdg.NumConductors;
+            }
+
+            Matrix<double> C_getdp = Matrix<double>.Build.Dense(total_conductors, total_conductors);
+
+
+            int globalTurn = -1;
+            int globalConductor = -1;
+            foreach (var wdg in tfmr.Windings)
+            {
+                foreach (var seg in wdg.Segments)
+                {
+                    if (seg.Geometry != null)
+                    {
+                        var seg_geom = seg.Geometry;
+                        for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++)
+                        {
+                            globalTurn++;
+                            for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+                            {
+                                globalConductor++;
+                                var row = CalcCapacitance(tfmr, globalTurn, localStrand, order: 1);
+                                Console.WriteLine($"C matrix row for turn {globalTurn} strand {localStrand} calculated.  Adding to row {globalConductor} of C matrix.");
+                                Console.WriteLine($"C row: {string.Join(", ", row.ToArray())}");
+                                // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
+                                lock (C_getdp)
+                                {
+                                    C_getdp.SetRow(globalConductor, row);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // globalConductor = 0;
+            // foreach (var wdg in tfmr.Windings)
+            // {
+            //     foreach (var seg in wdg.Segments)
+            //     {
+            //         if (seg.Geometry != null)
+            //         {
+            //             var seg_geom = seg.Geometry;
+            //             for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++, globalTurn++)
+            //             {
+            //                 for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+            //                 {
+            //                     globalConductor++;
+            //                     (double r, double z) = wdg.GetTurnMidpoint(localTurn);
+            //                     for (int t2 = 0; t2 < total_turns; t2++)
+            //                     {
+            //                         C_getdp[globalTurn, t2] = C_getdp[globalTurn, t2] / r;
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
+
+
+            DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
+            return C_getdp;
+        }
+
+        private Vector_d CalcCapacitance(Transformer tfmr, int excitedTurn, int excitedStrand, int order = 1)
+        {
+
+            var fem = new GetDPAxiElecProblem();
+            fem.Order = order;
+            //fem.MeshPath = meshFile;
+            fem.Filename = $"./Results/{excitedTurn}/case.pro";
+
+            var oil = new Material("Oil")
+            {
+                Properties = new Dictionary<string, double> {
+                { "eps_r", 1.0 } }
+            };
+
+            var paper = new Material("Paper")
+            {
+                Properties = new Dictionary<string, double> {
+                { "eps_r", 2.0 } }
+            };
+
+            // var conductor = new Material("Conductor") // Dummy material for copper conductor area
+            // {
+            //     Properties = new Dictionary<string, double> {
+            //     { "eps_r", 1.0 } }
+            // };
+
+            fem.Materials.Add(oil);
+            fem.Materials.Add(paper);
+            //fem.Materials.Add(conductor);
+            fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
+            if (tfmr.Core.CoreLegRadius_mm > 0)
+            {
+                fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", EntityGroupName = "CoreLeg", Potential = 0.0 });
+            }
+            else
+            {
+                fem.BoundaryConditions.Add(new NeumannBoundaryCondition() { Name = "Axis", EntityGroupName = "Axis", Flux = 0.0 });
+            }
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
+            int globalTurn = 0;
+            for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
+            {
+                var wdg = tfmr.Windings[wdgNum];
+                for (int segNum = 0; segNum < wdg.Segments.Count; segNum++)
+                {
+                    var seg = wdg.Segments[segNum];
+                    if (seg.Geometry != null)
+                    {
+                        var seg_geom = seg.Geometry;
+                        for (int localTurn = 0; localTurn < seg_geom.NumTurns; localTurn++, globalTurn++)
+                        {
+                            for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
+                            {
+                                var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
+                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
+                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name };
+                                fem.EntityGroups.Add(groupIns);
+                                fem.EntityGroups.Add(groupCond);
+                                fem.Regions.Add(regionIns);
+                                fem.Regions.Add(regionCond);
+
+                                //if (globalTurn == excitedTurn && localStrand == excitedStrand)
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
+                                //}
+                                //else
+                                //{
+                                //    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
+                                //}
+                            }
+                        }
+                    }
+                }
+            }
+
+            fem.Solve();
+
+            var resultFile = File.OpenText($"./Results/{excitedTurn}/q.txt");
+            string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
+            var C_array = Array.ConvertAll(line.Split().Skip(2).ToArray(), double.Parse);
+
+            var C = Vector_d.Build.Dense(C_array);
+            resultFile.Close();
+
+            return C;
         }
     }
 
