@@ -35,7 +35,7 @@ namespace TfmrLib.FEM
         public NamedCollection<EntityGroup> EntityGroups { get; set; } = new NamedCollection<EntityGroup>();
         public List<Material> Materials { get; set; } = new List<Material>();
         public List<Region> Regions { get; set; } = new List<Region>();
-        public List<Terminal> Terminals { get; set; } = new List<Terminal>(); 
+        public NamedCollection<Terminal> Terminals { get; set; } = new NamedCollection<Terminal>();
         public List<BoundaryCondition> BoundaryConditions { get; set; } = new List<BoundaryCondition>();
         public List<Scenario> Scenarios { get; set; } = new List<Scenario>();
 

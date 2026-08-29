@@ -103,6 +103,60 @@ namespace TfmrLib
             return transformer;
         }
 
+        public static Transformer ModelWindingSmall(int num_discs, int turns_per_disc)
+        {
+            var transformer = new Transformer
+            {
+                Core = new Core
+                {
+                    CoreLegRadius_mm = Conversions.in_to_mm(12.1),
+                    NumLegs = 1,
+                    NumWoundLegs = 1,
+                    WindowWidth_mm = Conversions.in_to_mm(40.0),
+                    WindowHeight_mm = Conversions.in_to_mm(40.0)
+                },
+                Windings =
+                {
+                    new Winding
+                    {
+                        Label = "Winding 1",
+                        Segments =
+                        {
+                            new WindingSegment
+                            {
+                                Label = "Segment 1",
+                                Geometry = new DiscWindingGeometry
+                                {
+                                    ConductorType = new RectConductor
+                                    {
+                                        StrandHeight_mm = Conversions.in_to_mm(0.3),
+                                        StrandWidth_mm = Conversions.in_to_mm(0.085),
+                                        CornerRadius_mm = Conversions.in_to_mm(0.032),
+                                        InsulationThickness_mm = Conversions.in_to_mm(0.018)
+                                    },
+                                    NumDiscs = num_discs,
+                                    TurnsPerDisc = turns_per_disc,
+                                    NumTurns = num_discs*turns_per_disc,
+                                    SpacerPattern = new RadialSpacerPattern
+                                    {
+                                        SpacerWidth_mm = 20.0,
+                                        NumSpacers_Circumference = 16,
+                                        Elements = new List<SpacerPatternElement>
+                                        {
+                                            new() { Count = num_discs-1, SpacerHeight_mm = Conversions.in_to_mm(0.188) }
+                                        }
+                                    },
+                                    InnerRadius_mm = Conversions.in_to_mm(15.25),
+                                    DistanceAboveBottomYoke_mm = Conversions.in_to_mm(15.0)
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            return transformer;
+        }
+
         public static Transformer ModelWinding()
         {
             var transformer = new Transformer

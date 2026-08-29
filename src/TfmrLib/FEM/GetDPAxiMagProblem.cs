@@ -66,7 +66,7 @@ namespace TfmrLib.FEM
             f.WriteLine("      // Amplitude of the phasor is set to \"Current\"");
             foreach (var exc in sc.Excitations)
             {
-                f.WriteLine($"      {{ Region {exc.Terminal.EntityGroup.Name}; Value {exc.Value}; }}");
+                f.WriteLine($"      {{ Region {Terminals[exc.TerminalName].EntityGroup.Name}; Value {exc.Magnitude}; }}");
             }
             f.WriteLine("    }");
             f.WriteLine("  }");

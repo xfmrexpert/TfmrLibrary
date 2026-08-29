@@ -1,3 +1,4 @@
+using netDxf.Collections;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -5,7 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib.FEM
 {
@@ -22,6 +25,11 @@ namespace TfmrLib.FEM
         double? ElapsedSeconds = null,
         string? Level = null,
         string? Message = null);
+
+    public class MFEMFile
+    {
+        
+    }
 
     public class MFEMProblem : FEMProblem
     {
@@ -75,193 +83,170 @@ namespace TfmrLib.FEM
             if (!string.IsNullOrEmpty(meshPath))
                 meshPath = Path.GetFullPath(meshPath).Replace('\\', '/');
 
+            // StreamWriter creates the file but not its parent directory, so make sure
+            // the target folder exists (e.g. a relative "./Results/..." path under the
+            // process working directory) before opening it.
+            var caseDir = Path.GetDirectoryName(Path.GetFullPath(Filename));
+            if (!string.IsNullOrEmpty(caseDir))
+                Directory.CreateDirectory(caseDir);
+
             // Write out JSON file for the MFEM-ElectroMag solver
-            using (var stream = new StreamWriter(Filename))
+            using var stream = new FileStream(Filename, FileMode.Create, FileAccess.Write);
+            //using var stream = new StreamWriter(Filename);
+            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
             {
-                stream.WriteLine("{");
-                stream.WriteLine("\t\"simulation\": {");
-                stream.WriteLine($"\t\t\"physics_type\": \"{PhysicsType.ToString().ToLower()}\",");
-                stream.WriteLine($"\t\t\"analysis_type\": \"{AnalysisType.ToString().ToLower()}\",");
-                stream.WriteLine($"\t\t\"geometry_type\": \"{GeometryType.ToString().ToLower()}\",");
-                stream.WriteLine($"\t\t\"mesh\": \"{meshPath}\",");
-                stream.WriteLine("\t\t\"order\": 2,");
-                stream.WriteLine("\t\t\"solver_tolerance\": 1e-12,");
-                stream.WriteLine("\t\t\"solver_max_iter\": 2000,");
-                stream.WriteLine("\t\t\"solver_print_level\": 1,");
+                writer.WriteStartObject();
+                writer.WriteStartObject("simulation");
+                writer.WriteString("physics_type",PhysicsType.ToString().ToLower());
+                writer.WriteString("analysis_type", AnalysisType switch { AnalysisType.Field => "field", AnalysisType.CouplingMatrix => "coupling_matrix", _ => AnalysisType.ToString().ToLowerInvariant() });
+                writer.WriteString("geometry_type", GeometryType.ToString().ToLower());
+                writer.WriteString("mesh", meshPath);
+                writer.WriteNumber("order", 2);
+                writer.WriteNumber("solver_tolerance", 1e-12);
+                writer.WriteNumber("solver_max_iter", 2000);
+                writer.WriteNumber("solver_print_level", 1);
+                writer.WriteBoolean("output_gmsh", true);
 
                 // The "amr" block is emitted only when adaptive refinement is requested,
                 // so older solver builds (and the default config) see the exact JSON they
                 // saw before. When present, "output_gmsh" gains a trailing comma so the
                 // block remains valid JSON.
                 bool emitAmr = Amr is { Enabled: true };
-                stream.WriteLine($"\t\t\"output_gmsh\": true{(emitAmr ? "," : "")}");
                 if (emitAmr)
                 {
                     var inv = System.Globalization.CultureInfo.InvariantCulture;
                     var amr = Amr!;
-                    stream.WriteLine("\t\t\"amr\": {");
-                    stream.WriteLine("\t\t\t\"enabled\": true,");
-                    stream.WriteLine($"\t\t\t\"max_iterations\": {amr.MaxIterations.ToString(inv)},");
-                    stream.WriteLine($"\t\t\t\"max_dofs\": {amr.MaxDofs.ToString(inv)},");
-                    stream.WriteLine($"\t\t\t\"error_fraction\": {amr.ErrorFraction.ToString("R", inv)},");
-                    stream.WriteLine($"\t\t\t\"error_tolerance\": {amr.ErrorTolerance.ToString("R", inv)},");
-                    stream.WriteLine($"\t\t\t\"conforming\": {(amr.Conforming ? "true" : "false")}");
-                    stream.WriteLine("\t\t}");
+                    writer.WriteStartObject("amr");
+                    writer.WriteBoolean("enabled", true);
+                    writer.WriteNumber("max_iterations", amr.MaxIterations);
+                    writer.WriteNumber("max_dofs", amr.MaxDofs);
+                    writer.WriteNumber("error_fraction", amr.ErrorFraction);
+                    writer.WriteNumber("error_tolerance", amr.ErrorTolerance);
+                    writer.WriteBoolean("conforming", amr.Conforming);
+                    writer.WriteEndObject(); // end of amr block
                 }
-                stream.WriteLine("\t},");
-                stream.WriteLine("\t\"entity_groups\": [");
+                writer.WriteEndObject(); // end of simulation block
+                writer.WriteStartArray("entity_groups");
                 foreach (var group in EntityGroups)
                 {
-                    stream.WriteLine("\t{");
-                    stream.WriteLine($"\t\t\"name\": \"{group.Name}\",");
-                    stream.WriteLine($"\t\t\"dim\": {group.Dimension},");
-                    stream.WriteLine($"\t\t\"attribute_ids\": [{string.Join(',', group.AttributeIds)}]");
-                    if (group != EntityGroups[^1])
+                    writer.WriteStartObject();
+                    writer.WriteString("name", group.Name);
+                    writer.WriteNumber("dim", group.Dimension);
+                    writer.WriteStartArray("attribute_ids");
+                    foreach (var id in group.AttributeIds)
                     {
-                        stream.WriteLine("\t},");
+                        writer.WriteNumberValue(id);
                     }
-                    else
-                    {
-                        stream.WriteLine("\t}");
-                    }
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
                 }
-                stream.WriteLine("\t],");
-                stream.WriteLine("\t\"materials\": [");
+                writer.WriteEndArray();
+                writer.WriteStartArray("materials");
                 foreach (var material in Materials)
                 {
-                    stream.WriteLine("\t{");
-                    stream.WriteLine($"\t\t\"name\": \"{material.Name}\",");
-                    stream.WriteLine("\t\t\"properties\": {");
+                    writer.WriteStartObject();
+                    writer.WriteString("name",material.Name);
+                    writer.WriteStartObject("properties");
                     foreach (var prop in material.Properties)
                     {
-                        stream.WriteLine($"\t\t\t\"{prop.Key}\": \t{prop.Value}");
+                        writer.WriteNumber(prop.Key, prop.Value);
                     }
-                    stream.WriteLine("\t\t}");
-                    if (material != Materials.Last())
-                    {
-                        stream.WriteLine("\t},");
-                    }
-                    else
-                    {
-                        stream.WriteLine("\t}");
-                    }
+                    writer.WriteEndObject(); // end of properties block
+                    writer.WriteEndObject(); // end of material
                 }
-                stream.WriteLine("\t],");
-                stream.WriteLine("\t\"regions\": [");
+                writer.WriteEndArray();
+                writer.WriteStartArray("regions");
                 foreach (var region in Regions)
                 {
-                    stream.WriteLine("\t{");
-                    stream.WriteLine($"\t\t\"name\": \"{region.Name}\",");
-                    stream.WriteLine($"\t\t\"entity_group\": \"{region.EntityGroupName}\",");
-                    stream.WriteLine($"\t\t\"material\": {Materials.IndexOf(region.Material)+1}");
-                    if (region != Regions.Last())
-                    {
-                        stream.WriteLine("\t},");
-                    }
-                    else
-                    {
-                        stream.WriteLine("\t}");
-                    }
+                    writer.WriteStartObject();
+                    writer.WriteString("name", region.Name);
+                    writer.WriteString("entity_group", region.EntityGroupName);
+                    writer.WriteString("material", region.Material.Name);
+                    writer.WriteEndObject();
                 }
-                stream.WriteLine("\t],");
-                stream.WriteLine("\t\"boundaries\": [");
+                writer.WriteEndArray();
+                writer.WriteStartArray("boundaries");
                 foreach (var bc in BoundaryConditions)
                 {
-                    stream.WriteLine("\t{");
-                    stream.WriteLine($"\t\t\"name\": \"{bc.Name}\",");
-                    stream.WriteLine($"\t\t\"entity_group\": \"{bc.EntityGroupName}\",");
+                    writer.WriteStartObject();
+                    writer.WriteString("name", bc.Name);
+                    writer.WriteString("entity_group", bc.EntityGroupName);
                     if (bc is NeumannBoundaryCondition neumann_bc)
                     {
-                        stream.WriteLine($"\t\t\"type\": \"Neumann\",");
-                        stream.WriteLine($"\t\t\"value\": {neumann_bc.Flux}");
+                        writer.WriteString("type", "Neumann");
+                        writer.WriteNumber("value", neumann_bc.Flux);
                     }
                     else if (bc is DirichletBoundaryCondition dirichlet_bc)
                     {
-                        stream.WriteLine($"\t\t\"type\": \"Dirichlet\",");
-                        stream.WriteLine($"\t\t\"value\": {dirichlet_bc.Potential}");
+                        writer.WriteString("type", "Dirichlet");
+                        writer.WriteNumber("value", dirichlet_bc.Potential);
                     }
-                    if (bc != BoundaryConditions.Last())
-                    {
-                        stream.WriteLine("\t},");
-                    }
-                    else
-                    {
-                        stream.WriteLine("\t}");
-                    }
+                    writer.WriteEndObject();
                 }
-                stream.WriteLine("\t],");
-                stream.WriteLine("\t\"terminals\": [");
+                writer.WriteEndArray();
+                writer.WriteStartArray("terminals");
                 foreach (var term in Terminals)
                 {
-                    stream.WriteLine("\t{");
-                    stream.WriteLine($"\t\t\"name\": \"{term.Name}\",");
-                    stream.WriteLine($"\t\t\"entity_group\": \"{term.EntityGroup.Name}\"");
-                    
-                    if (term != Terminals.Last())
-                    {
-                        stream.WriteLine("\t},");
-                    }
-                    else
-                    {
-                        stream.WriteLine("\t}");
-                    }
+                    writer.WriteStartObject();
+                    writer.WriteString("name", term.Name);
+                    writer.WriteString("excitation_type", term.ExcitationType.ToString().ToLower());
+                    writer.WriteString("entity_group", term.EntityGroup.Name);
+                    writer.WriteEndObject();
                 }
-                stream.WriteLine("\t],");
-                stream.WriteLine("\t\"scenarios\": [");
+                writer.WriteEndArray();
+                writer.WriteStartArray("scenarios");
                 foreach (var scenario in Scenarios)
                 {
-                    stream.WriteLine("\t{");
-                    stream.WriteLine($"\t\t\"name\": \"{scenario.Name}\",");
-                    stream.WriteLine($"\t\t\"excitations\": [");
-                    foreach (var exc in scenario.Excitations)
-                    {
-                        stream.WriteLine("\t\t{");
-                        stream.WriteLine($"\t\t\t\"terminal\": \"{exc.Terminal.Name}\",");
-                        stream.WriteLine($"\t\t\t\"value\": {exc.Value}");
-                        if (exc != scenario.Excitations.Last())
-                        {
-                            stream.WriteLine("\t\t},");
-                        }
-                        else
-                        {
-                            stream.WriteLine("\t\t}");
-                        }
-                    }
-                    stream.WriteLine("\t\t]");
+                    writer.WriteStartObject(); // start scenario
+                    writer.WriteString("name", scenario.Name);
                     if (AnalysisType == AnalysisType.CouplingMatrix)
                     {
-                        stream.WriteLine("\t\t],");
                         if (scenario.Frequency is FrequencySpec.Scalar scalar)
                         {
-                            stream.WriteLine($"\t\t\"frequency\": {scalar.Value}");
+                            writer.WriteNumber("frequency", scalar.Value);
+                        }
+                        else if (scenario.Frequency is FrequencySpec.List list)
+                        {
+                            writer.WriteStartArray("frequency");
+                            foreach (var freq in list.Frequencies)
+                            {
+                                writer.WriteNumberValue(freq);
+                            }
+                            writer.WriteEndArray();
                         }
                         else if (scenario.Frequency is FrequencySpec.Sweep sweep)
                         {
-                            stream.WriteLine($"\t\t\"frequency\": {{\"scale\": \"{sweep.Scale}\", \"start\": {sweep.Start}, \"stop\": {sweep.Stop}, \"points\": {sweep.Points}}}");
+                            writer.WriteStartObject("frequency");
+                            writer.WriteString("scale", sweep.Scale switch { FrequencyScale.Linear => "linear", FrequencyScale.Log => "log", _ => sweep.Scale.ToString().ToLowerInvariant() });
+                            writer.WriteNumber("start", sweep.Start);
+                            writer.WriteNumber("stop", sweep.Stop);
+                            writer.WriteNumber("points", sweep.Points);
+                            writer.WriteEndObject();
                         }
                     }
-                    else
+                    if (scenario.Excitations is not null)
                     {
-                        stream.WriteLine("\t\t]");
+                        writer.WriteStartArray("excitations");
+                        foreach (var exc in scenario.Excitations)
+                        {
+                            writer.WriteStartObject();
+                            writer.WriteString("terminal", exc.TerminalName);
+                            writer.WriteNumber("value", exc.Magnitude);
+                            writer.WriteEndObject();
+                        }
+                        writer.WriteEndArray(); // end excitations array
                     }
-                    if (scenario != Scenarios.Last())
-                    {
-                        stream.WriteLine("\t},");
-                    }
-                    else
-                    {
-                        stream.WriteLine("\t}");
-                    }
+                    writer.WriteEndObject(); // end scenario
                 }
-                stream.WriteLine("\t]");
-                stream.WriteLine("}");
+                writer.WriteEndArray(); // end scenarios array
+                writer.WriteEndObject(); // end root
             }
         }
 
         public override void Solve()
         {
             string mfem_exe = FindMFEMExecutable();
-            Console.WriteLine($"Using MFEM-ElectroMag at: {mfem_exe}");
+            ReportMessage("status", $"Using MFEM-ElectroMag at: {mfem_exe}");
 
             WriteMFEMFile();
 
@@ -280,21 +265,21 @@ namespace TfmrLib.FEM
             var errors = new List<string>();
             var stderr = new StringBuilder();
 
-            Console.WriteLine($"Running (background): {mfem_exe} {Filename} --machine-readable");
+            ReportMessage("status", $"Running (background): {mfem_exe} {Filename} --machine-readable");
             process.Start();
 
             Task stdoutTask = ReadStandardOutputAsync(process.StandardOutput, output, errors);
             Task stderrTask = ReadStandardErrorAsync(process.StandardError, stderr);
             Task exitTask = process.WaitForExitAsync();
 
-            if (!exitTask.Wait(TimeSpan.FromMinutes(6)))
-            {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
-                process.WaitForExit();
-                Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
-                throw new TimeoutException("MFEM-ElectroMag was terminated after exceeding the six-minute timeout.");
-            }
+            //if (!exitTask.Wait(TimeSpan.FromMinutes(6)))
+            //{
+            //    if (!process.HasExited)
+            //        process.Kill(entireProcessTree: true);
+            //    process.WaitForExit();
+            //    Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
+            //    throw new TimeoutException("MFEM-ElectroMag was terminated after exceeding the six-minute timeout.");
+            //}
 
             Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
 
@@ -326,11 +311,16 @@ namespace TfmrLib.FEM
         {
             while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
-                Console.WriteLine(line);
                 output.AppendLine(line);
 
+                // Non machine-readable lines (e.g. banners from linked libraries) are still
+                // surfaced, but as progress messages so the host controls how they are shown.
                 if (!TryParseProgress(line, out MFEMProgressEvent? progress))
+                {
+                    if (!string.IsNullOrWhiteSpace(line))
+                        ReportMessage("diagnostic", line);
                     continue;
+                }
 
                 if (progress.Level == "error" && !string.IsNullOrWhiteSpace(progress.Message))
                     errors.Add(progress.Message);
@@ -339,16 +329,23 @@ namespace TfmrLib.FEM
             }
         }
 
-        private static async Task ReadStandardErrorAsync(StreamReader reader, StringBuilder stderr)
+        private async Task ReadStandardErrorAsync(StreamReader reader, StringBuilder stderr)
         {
             while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
-                Console.WriteLine(line);
                 stderr.AppendLine(line);
+                if (!string.IsNullOrWhiteSpace(line))
+                    ReportMessage("warning", line);
             }
         }
 
-        private static bool TryParseProgress(string line, out MFEMProgressEvent? progress)
+        private void ReportMessage(string level, string message) =>
+            ProgressChanged?.Invoke(new MFEMProgressEvent(
+                MFEMProgressEventType.Message,
+                Level: level,
+                Message: message));
+
+        private bool TryParseProgress(string line, out MFEMProgressEvent? progress)
         {
             progress = null;
 
@@ -399,7 +396,7 @@ namespace TfmrLib.FEM
             }
             catch (JsonException exception)
             {
-                Console.WriteLine($"Malformed MFEM-ElectroMag machine-readable output: {exception.Message}");
+                ReportMessage("warning", $"Malformed MFEM-ElectroMag machine-readable output: {exception.Message}");
                 return false;
             }
         }
@@ -422,20 +419,20 @@ namespace TfmrLib.FEM
             if (string.IsNullOrEmpty(ResultsPath))
             {
                 LastLoadError = "ResultsFile path was not set.";
-                Console.WriteLine(LastLoadError);
+                ReportMessage("error", LastLoadError);
                 return;
             }
 
             if (!File.Exists(ResultsPath))
             {
-                Console.WriteLine($"Results file '{ResultsPath}' not found.");
+                ReportMessage("error", $"Results file '{ResultsPath}' not found.");
                 return;
             }
 
             try
             {
                 Solution = FEMSolution.Load(ResultsPath);
-                Console.WriteLine($"Loaded FEM solution from {ResultsPath} " +
+                ReportMessage("status", $"Loaded FEM solution from {ResultsPath} " +
                     $"(nodal views: {Solution.NodalScalars.Count}, " +
                     $"element-nodal views: {Solution.ElementNodalFields.Count}, " +
                     $"element views: {Solution.ElementFields.Count}).");
@@ -443,33 +440,112 @@ namespace TfmrLib.FEM
             catch (Exception ex)
             {
                 LastLoadError = $"Failed to load FEM results from '{ResultsPath}': {ex.Message}";
-                Console.WriteLine(LastLoadError);
+                ReportMessage("error", LastLoadError);
             }
         }
 
         //TODO: This needs to be updated to loop through files for different frequencies
-        public double[,] ReadCouplingMatrix()
+        public List<(double, Matrix<double>)> ReadCouplingMatrices()
         {
-            if (!File.Exists(ResultsPath + "\\inductance_matrix.csv"))
-                throw new FileNotFoundException($"Coupling matrix file '{ResultsPath}\\inductance_matrix.csv' not found.");
+            if (!Path.Exists(ResultsPath))
+                throw new FileNotFoundException($"MFEM Results path '{ResultsPath}' not found.");
 
-            double[,] L_array = new double[Terminals.Count, Terminals.Count];
+            var matrices = new List<(double, Matrix<double>)>();
 
-            var resultFile = File.OpenText(ResultsPath + "\\inductance_matrix.csv");
-            int row = 0;
-            while (!resultFile.EndOfStream)
+            // The solver encodes the frequency in the file name, but not always as a bare
+            // invariant-culture number: it may carry a unit suffix ("60Hz", "1e3_Hz"), a
+            // leading scenario tag ("LMatrix_60Hz") or a trailing one ("60Hz_LMatrix").
+            // Scan for the numeric token anywhere in the name instead of requiring it to be
+            // the leading characters, preferring the one immediately followed by a "Hz" unit.
+            static bool TryParseFrequency(string text, out double frequency)
             {
-                string? line = resultFile.ReadLine();
-                if (line == null) break;
-                var values = Array.ConvertAll(line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries), double.Parse);
-                for (int col = 0; col < values.Length && col < Terminals.Count; col++)
+                frequency = 0.0;
+                if (string.IsNullOrWhiteSpace(text))
+                    return false;
+
+                // Number (optionally signed, with decimals/exponent) followed by an optional
+                // separator and an optional "Hz" unit.
+                var matches = Regex.Matches(
+                    text.Trim(),
+                    @"(?<num>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*[_\-]?\s*(?<unit>[Hh][Zz])?");
+
+                Match? candidate = null;
+                foreach (Match m in matches)
                 {
-                    L_array[row, col] = values[col];
+                    if (!m.Success || m.Groups["num"].Length == 0)
+                        continue;
+
+                    // A number with an explicit "Hz" unit wins outright.
+                    if (m.Groups["unit"].Success)
+                    {
+                        candidate = m;
+                        break;
+                    }
+
+                    // Otherwise remember the last bare number as a fallback.
+                    candidate ??= m;
                 }
-                row++;
+
+                if (candidate is null)
+                    return false;
+
+                return double.TryParse(
+                    candidate.Groups["num"].Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out frequency);
             }
 
-            return L_array;
+            foreach (var matrix_file in Directory.GetFiles(ResultsPath, "inductance_matrix_*.csv"))
+            {
+                var fileName = Path.GetFileNameWithoutExtension(matrix_file);
+                var freqPart = fileName.Substring("inductance_matrix_".Length);
+                if (!TryParseFrequency(freqPart, out double freq))
+                {
+                    throw new FormatException(
+                        $"Could not parse a frequency from inductance matrix file name '{fileName}'. " +
+                        $"Expected a name of the form 'inductance_matrix_<frequency>[Hz].csv' (file: '{matrix_file}').");
+                }
+
+                ReportMessage("status", $"Found inductance matrix for frequency {freq} Hz: {matrix_file}");
+
+                double[,] L_array = new double[Terminals.Count, Terminals.Count];
+
+                using var resultFile = File.OpenText(matrix_file);
+                int row = 0;
+                while (!resultFile.EndOfStream)
+                {
+                    string? line = resultFile.ReadLine();
+                    if (line == null) break;
+
+                    var tokens = line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (tokens.Length == 0) continue;
+
+                    // The solver writes a header row (e.g. "Terminal0,Terminal1,...") and may
+                    // include comment lines; skip anything that isn't purely numeric.
+                    var values = new double[tokens.Length];
+                    bool isNumericRow = true;
+                    for (int i = 0; i < tokens.Length; i++)
+                    {
+                        if (!double.TryParse(tokens[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out values[i]))
+                        {
+                            isNumericRow = false;
+                            break;
+                        }
+                    }
+                    if (!isNumericRow) continue;
+
+                    if (row >= Terminals.Count) break;
+
+                    for (int col = 0; col < values.Length && col < Terminals.Count; col++)
+                    {
+                        L_array[row, col] = values[col];
+                    }
+                    row++;
+                }
+                matrices.Add((freq, Matrix<double>.Build.DenseOfArray(L_array)));
+            }
+            return matrices;
         }
     }
 

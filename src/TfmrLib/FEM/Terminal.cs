@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
+    public enum Quantity
+    {
+        Voltage = 0,
+        Current = 1
+    }
+
     public class Terminal : INamed
     {
         public string Name { get; init; }

@@ -114,8 +114,8 @@ namespace TfmrLib
 
             Matrix_c B2 = HA.ToComplex().Append(HB);
 
-            Matrix_d L = MatrixCalculator.Calc_Lmatrix(Tfmr, f);
-            Matrix_d R_f = MatrixCalculator.Calc_Rmatrix(Tfmr, f);
+            Matrix_d L = MatrixCalculator.Calc_Lmatrix(Tfmr, new FEM.FrequencySpec.Scalar(f)).First().Item2;
+            Matrix_d R_f = MatrixCalculator.Calc_Rmatrix(Tfmr, new FEM.FrequencySpec.Scalar(f));
             //Console.WriteLine($"L: {L.RowCount} x {L.ColumnCount}");
             //Console.WriteLine($"C: {C.RowCount} x {C.ColumnCount}");
             //L.DisplayMatrixAsTable();

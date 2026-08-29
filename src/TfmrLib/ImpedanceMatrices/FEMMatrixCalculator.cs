@@ -20,6 +20,12 @@ namespace TfmrLib
         private Mesh mesh;
         private string meshFile;
 
+        /// <summary>
+        /// Raised for each progress event reported by the FEM solver, so hosts (CLI/UI) can
+        /// render them without the solver writing directly to the console.
+        /// </summary>
+        public event Action<MFEMProgressEvent>? ProgressChanged;
+
         private void GenerateMesh(Transformer tfmr, int meshorder = 2)
         {
             var meshGen = new MeshGenerator();
@@ -31,15 +37,17 @@ namespace TfmrLib
             mesh = meshGen.GenerateMesh(geoFile, meshscale, meshorder);
         }
 
-        public Matrix<double> Calc_Lmatrix(Transformer tfmr, FrequencySpec freq)
+        public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FrequencySpec freq)
         {
             int order = 2;
             GenerateMesh(tfmr, order);
             var fem = new MFEMProblem();
+            fem.ProgressChanged += e => ProgressChanged?.Invoke(e);
             fem.AnalysisType = AnalysisType.CouplingMatrix;
             fem.PhysicsType = PhysicsType.Magnetoquasistatics;
             fem.MeshPath = meshFile;
             fem.Filename = $"./Results/Lmatrix.json";
+            fem.ResultsPath = $"./";
 
             var oil = new Material("Oil")
             {
@@ -86,7 +94,7 @@ namespace TfmrLib
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
                                 var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
                                 var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
-                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) } };
                                 var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name, Material = copper };
                                 fem.EntityGroups.Add(groupIns);
                                 fem.EntityGroups.Add(groupCond);
@@ -102,10 +110,10 @@ namespace TfmrLib
 
             fem.Solve();
 
-            // Read the L matrix from the output file
-            var L_getdp = Matrix<double>.Build.DenseOfArray(fem.ReadCouplingMatrix());
+            // Read the L matrices from the output directory and return them as a list of tuples (frequency, L matrix)
+            var L_matrices = fem.ReadCouplingMatrices();
 
-            return L_getdp;
+            return L_matrices;
         }
 
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
@@ -113,7 +121,7 @@ namespace TfmrLib
             throw new NotImplementedException();
         }
 
-        public Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
+        public Matrix<double> Calc_Rmatrix(Transformer tfmr, FEM.FrequencySpec freq)
         {
             throw new NotImplementedException();
         }

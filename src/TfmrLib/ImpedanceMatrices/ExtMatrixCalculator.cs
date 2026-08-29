@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 using MatrixExponential;
+using TfmrLib.FEM;
 
 namespace TfmrLib
 {
@@ -31,22 +32,24 @@ namespace TfmrLib
         }
 
         //PUL Inductances
-        public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f = 60)
+        public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FrequencySpec freq)
         {
-            if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix * InductanceFudgeFactor;
-            if (f >= L_matrices[L_matrices.Count - 1].Freq) return L_matrices[L_matrices.Count - 1].L_matrix * InductanceFudgeFactor;
-            for (int i = 0; i < L_matrices.Count - 1; i++)
-            {
-                if (f >= L_matrices[i].Freq && f <= L_matrices[i + 1].Freq)
-                {
-                    double f1 = L_matrices[i].Freq;
-                    double f2 = L_matrices[i + 1].Freq;
-                    var L1 = L_matrices[i].L_matrix;
-                    var L2 = L_matrices[i + 1].L_matrix;
+            double f = 60;
+            //TODO: Handle frequency sweep
+            //if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix * InductanceFudgeFactor;
+            //if (f >= L_matrices[L_matrices.Count - 1].Freq) return L_matrices[L_matrices.Count - 1].L_matrix * InductanceFudgeFactor;
+            //for (int i = 0; i < L_matrices.Count - 1; i++)
+            //{
+            //    if (f >= L_matrices[i].Freq && f <= L_matrices[i + 1].Freq)
+            //    {
+            //        double f1 = L_matrices[i].Freq;
+            //        double f2 = L_matrices[i + 1].Freq;
+            //        var L1 = L_matrices[i].L_matrix;
+            //        var L2 = L_matrices[i + 1].L_matrix;
 
-                    return (L1 + (L2 - L1) * (f - f1) / (f2 - f1)) * InductanceFudgeFactor;
-                }
-            }
+            //        return new List<(double Freq, Matrix<double> L_matrix)> { (f, (L1 + (L2 - L1) * (f - f1) / (f2 - f1)) * InductanceFudgeFactor) };
+            //    }
+            //}
             return null;
         }
 
@@ -118,7 +121,7 @@ namespace TfmrLib
             }
         }
 
-        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
+        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, FEM.FrequencySpec freq)
         {
             int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
@@ -127,7 +130,7 @@ namespace TfmrLib
             }
 
             LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_conductors, total_conductors);
-
+            double f = 60; //TODO: Handle frequency sweep
             int start = 0;
             foreach (Winding wdg in tfmr.Windings)
             {

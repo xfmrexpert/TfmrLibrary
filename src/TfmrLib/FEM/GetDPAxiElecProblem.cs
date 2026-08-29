@@ -33,7 +33,7 @@ namespace TfmrLib.FEM
             f.Write("  Sur_C_Elec = Region[{");
             foreach (var exc in sc.Excitations)
             {
-                f.Write($"{exc.Terminal.EntityGroup.Name}");
+                f.Write($"{Terminals[exc.TerminalName].EntityGroup.Name}");
                 if (exc != sc.Excitations.Last())
                     f.Write(", ");
             }
@@ -85,7 +85,7 @@ namespace TfmrLib.FEM
             f.WriteLine("    Case {");
             foreach (var exc in sc.Excitations)
             {
-                f.WriteLine($"      {{ Region {exc.Terminal.EntityGroup.Name}; Value {exc.Value}; }}");
+                f.WriteLine($"      {{ Region {Terminals[exc.TerminalName].EntityGroup.Name}; Value {exc.Magnitude}; }}");
             }
             f.WriteLine("    }");
             f.WriteLine("  }");

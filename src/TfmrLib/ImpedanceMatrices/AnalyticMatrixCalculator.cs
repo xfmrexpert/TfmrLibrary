@@ -12,7 +12,7 @@ namespace TfmrLib
     {
         //PUL Inductances
         
-        public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f = 60)
+        public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FEM.FrequencySpec freq)
         {
             int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
@@ -21,6 +21,7 @@ namespace TfmrLib
             }
 
             LinAlg.Matrix<double> L = LinAlg.Matrix<double>.Build.Dense(total_conductors, total_conductors);
+            double f = 60; //TODO: Add frequency sweep loop
 
             int idx_i = -1;
             foreach (Winding wdg in tfmr.Windings)
@@ -66,7 +67,7 @@ namespace TfmrLib
                     }
                 }
             }
-            return L;
+            return new List<(double, Matrix<double>)> { (60, L) };
         }
 
         //TODO: Reimplement capacitance matrix calculations for new transformer model with multiple windings
@@ -249,8 +250,9 @@ namespace TfmrLib
             return C;
         }
 
-        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f = 60)
+        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, FEM.FrequencySpec freq)
         {
+            //TODO: Implement frequency-dependent resistance calculations
             int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
             {
