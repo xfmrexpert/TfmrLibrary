@@ -30,7 +30,7 @@ namespace TfmrLib
         {
             var meshGen = new MeshGenerator();
             var geometry = tfmr.GenerateGeometry();
-            double meshscale = 1.0;
+            double meshscale = 10.0;
             meshGen.AddGeometry(geometry);
             var geoFile = "case.geo";
             meshFile = "case.msh";
@@ -45,6 +45,7 @@ namespace TfmrLib
             fem.ProgressChanged += e => ProgressChanged?.Invoke(e);
             fem.AnalysisType = AnalysisType.CouplingMatrix;
             fem.PhysicsType = PhysicsType.Magnetoquasistatics;
+            fem.GeometryType = GeometryType.Axisymmetric;
             fem.MeshPath = meshFile;
             fem.Filename = $"./Results/Lmatrix.json";
             fem.ResultsPath = $"./";

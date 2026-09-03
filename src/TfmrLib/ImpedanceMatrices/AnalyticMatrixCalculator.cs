@@ -281,13 +281,13 @@ namespace TfmrLib
 
             double mu_r = 1.0;
             double sigma = 1.0 / rho_c; // Conductivity of copper (S/m)
-            double GMD = Math.Exp(0.5 * Math.Log(h * h + w * w) + 2 * w / (3 * h) * Math.Atan(h / w) + 2 * h / (3 * w) * Math.Atan(w / h) - w * w / (12 * h * h) * Math.Log(1 + h * h / (w * w)) - h * h / (12 * w * w) * Math.Log(1 + w * w / (h * h)) - 25 / 12);
+            double GMD = Math.Exp(0.5 * Math.Log(h * h + w * w) + 2.0 * w / (3.0 * h) * Math.Atan(h / w) + 2.0 * h / (3.0 * w) * Math.Atan(w / h) - w * w / (12.0 * h * h) * Math.Log(1.0 + h * h / (w * w)) - h * h / (12.0 * w * w) * Math.Log(1 + w * w / (h * h)) - 25.0 / 12.0);
             // Internal inductance
-            double L_int_low = Constants.mu_0 * mu_r / (8 * Math.PI);  // Low-frequency internal inductance
-            double omega = 2 * Math.PI * f;      // Angular frequency
-            double delta = Math.Sqrt(2 / (omega * Constants.mu_0 * mu_r * sigma));  // Skin depth
-            double L_int = L_int_low * Math.Min(1, delta / (GMD / 2));  // Smooth transition
-            double L_s = L_int + Constants.mu_0 * r_avg * (Math.Log(8 * r_avg / GMD) - 2);
+            //double L_int_low = Constants.mu_0 * mu_r / (8.0 * Math.PI);  // Low-frequency internal inductance
+            double omega = 2.0 * Math.PI * f;      // Angular frequency
+            double delta = Math.Sqrt(2.0 / (omega * Constants.mu_0 * mu_r * sigma));  // Skin depth
+            //double L_int = L_int_low * Math.Min(1.0, delta / (GMD / 2.0));  // Smooth transition
+            double L_s = Constants.mu_0 * r_avg * (Math.Log(8.0 * r_avg / GMD) - 2.0);
             //Console.WriteLine($"r_avg: {r_avg} GMD: {GMD} L_s: {L_s / 1e-9} L_s/l: {L_s / (2 * Math.PI * r_avg) / 1e-9}");
             return L_s;
         }

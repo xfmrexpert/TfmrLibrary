@@ -117,7 +117,7 @@ namespace TfmrLib.FEM
                     var inv = System.Globalization.CultureInfo.InvariantCulture;
                     var amr = Amr!;
                     writer.WriteStartObject("amr");
-                    writer.WriteBoolean("enabled", true);
+                    writer.WriteBoolean("enabled", false);
                     writer.WriteNumber("max_iterations", amr.MaxIterations);
                     writer.WriteNumber("max_dofs", amr.MaxDofs);
                     writer.WriteNumber("error_fraction", amr.ErrorFraction);
@@ -165,7 +165,7 @@ namespace TfmrLib.FEM
                     writer.WriteEndObject();
                 }
                 writer.WriteEndArray();
-                writer.WriteStartArray("boundaries");
+                writer.WriteStartArray("boundary_conditions");
                 foreach (var bc in BoundaryConditions)
                 {
                     writer.WriteStartObject();
@@ -173,12 +173,12 @@ namespace TfmrLib.FEM
                     writer.WriteString("entity_group", bc.EntityGroupName);
                     if (bc is NeumannBoundaryCondition neumann_bc)
                     {
-                        writer.WriteString("type", "Neumann");
+                        writer.WriteString("type", "neumann");
                         writer.WriteNumber("value", neumann_bc.Flux);
                     }
                     else if (bc is DirichletBoundaryCondition dirichlet_bc)
                     {
-                        writer.WriteString("type", "Dirichlet");
+                        writer.WriteString("type", "dirichlet");
                         writer.WriteNumber("value", dirichlet_bc.Potential);
                     }
                     writer.WriteEndObject();
@@ -189,7 +189,7 @@ namespace TfmrLib.FEM
                 {
                     writer.WriteStartObject();
                     writer.WriteString("name", term.Name);
-                    writer.WriteString("excitation_type", term.ExcitationType.ToString().ToLower());
+                    writer.WriteString("quantity", term.ExcitationType.ToString().ToLower());
                     writer.WriteString("entity_group", term.EntityGroup.Name);
                     writer.WriteEndObject();
                 }
@@ -523,11 +523,11 @@ namespace TfmrLib.FEM
 
                     // The solver writes a header row (e.g. "Terminal0,Terminal1,...") and may
                     // include comment lines; skip anything that isn't purely numeric.
-                    var values = new double[tokens.Length];
+                    var values = new double[tokens.Length-1];
                     bool isNumericRow = true;
-                    for (int i = 0; i < tokens.Length; i++)
+                    for (int i = 1; i < tokens.Length; i++) // Start from 1 to skip the first token (terminal name)
                     {
-                        if (!double.TryParse(tokens[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out values[i]))
+                        if (!double.TryParse(tokens[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out values[i-1]))
                         {
                             isNumericRow = false;
                             break;
