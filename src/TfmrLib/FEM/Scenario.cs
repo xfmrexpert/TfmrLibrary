@@ -6,33 +6,6 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public abstract record FrequencySpec
-    {
-        public sealed record Scalar(double Value) : FrequencySpec;
-
-        public sealed record Sweep(
-            FrequencyScale Scale,
-            double Start,
-            double Stop,
-            int Points) : FrequencySpec;
-
-        public sealed record List(List<double> Frequencies) : FrequencySpec;
-    }
-
-    public enum FrequencyScale
-    {
-        Linear,
-        Log
-    }
-
-    public class Excitation : INamed
-    {
-        public string Name { get; init; }
-        public string TerminalName { get; set; }
-        public double Magnitude { get; set; }
-        public double Phase { get; set; }
-    }
-
     public class Scenario : INamed
     {
         public string Name { get; init; }

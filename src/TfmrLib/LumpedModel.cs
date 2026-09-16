@@ -97,11 +97,11 @@ namespace TfmrLib
         {
             Vector_c V_TurnEnd_AtF = V_c.Dense(total_turns-1);
 
-            Matrix_d L_PUL = MatrixCalculator.Calc_Lmatrix(Tfmr, new FEM.FrequencySpec.Scalar(f)).First().Item2;
+            Matrix_d L_PUL = MatrixCalculator.Calc_Lmatrix(Tfmr, f);
 
             Matrix_d L = Gamma * L_PUL;
 
-            Matrix_d R_PUL = MatrixCalculator.Calc_Rmatrix(Tfmr, new FEM.FrequencySpec.Scalar(f));
+            Matrix_d R_PUL = MatrixCalculator.Calc_Rmatrix(Tfmr, f);
 
             Matrix_d R = Gamma * R_PUL;
 

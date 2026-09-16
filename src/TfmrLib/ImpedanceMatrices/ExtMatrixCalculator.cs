@@ -12,6 +12,7 @@ using LinAlg = MathNet.Numerics.LinearAlgebra;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 using MatrixExponential;
 using TfmrLib.FEM;
+using System.Numerics;
 
 namespace TfmrLib
 {
@@ -21,43 +22,48 @@ namespace TfmrLib
         public double SelfCapacitanceFudgeFactor { get; set; } = 1.0;
         public double MutualCapacitanceFudgeFactor { get; set; } = 1.0;
 
-        public string DirectoryPath { get; set; }
+        public string LR_file { get; set; }
+        public string C_file { get; set; } 
 
         private List<(double Freq, Matrix<double> L_matrix)> L_matrices;
+        private List<(double Freq, Matrix<double> R_matrix)> R_matrices;
+        private Matrix<double> C_matrix;
 
-        public ExtMatrixCalculator(string directoryPath)
+        public ExtMatrixCalculator(string lr_file, string c_file)
         {
-            DirectoryPath = directoryPath;
-            ReadInductances();
+            LR_file = lr_file;
+            C_file = c_file;
+            ReadMatrices();
         }
 
-        //PUL Inductances
+        public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f)
+        {
+            if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix * InductanceFudgeFactor;
+            for (int i = 0; i < L_matrices.Count - 1; i++)
+            {
+               if (f >= L_matrices[i].Freq && f <= L_matrices[i + 1].Freq)
+               {
+                   double f1 = L_matrices[i].Freq;
+                   double f2 = L_matrices[i + 1].Freq;
+                   var L1 = L_matrices[i].L_matrix;
+                   var L2 = L_matrices[i + 1].L_matrix;
+
+                   return L1 + (L2 - L1) * (f - f1) / (f2 - f1);
+               }
+            }
+            return L_matrices[L_matrices.Count - 1].L_matrix * InductanceFudgeFactor;
+        }
+
+        // PUL Inductances
         public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FrequencySpec freq)
         {
-            double f = 60;
-            //TODO: Handle frequency sweep
-            //if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix * InductanceFudgeFactor;
-            //if (f >= L_matrices[L_matrices.Count - 1].Freq) return L_matrices[L_matrices.Count - 1].L_matrix * InductanceFudgeFactor;
-            //for (int i = 0; i < L_matrices.Count - 1; i++)
-            //{
-            //    if (f >= L_matrices[i].Freq && f <= L_matrices[i + 1].Freq)
-            //    {
-            //        double f1 = L_matrices[i].Freq;
-            //        double f2 = L_matrices[i + 1].Freq;
-            //        var L1 = L_matrices[i].L_matrix;
-            //        var L2 = L_matrices[i + 1].L_matrix;
-
-            //        return new List<(double Freq, Matrix<double> L_matrix)> { (f, (L1 + (L2 - L1) * (f - f1) / (f2 - f1)) * InductanceFudgeFactor) };
-            //    }
-            //}
-            return null;
+            return L_matrices;
         }
 
         //PUL Capacitances
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
-            Matrix<double> C = DelimitedReader.Read<double>(DirectoryPath + "/C_getdp.csv", false, ",", false);
-            Console.WriteLine($"C before: {C.RowSums().Sum()}");
+            var C = C_matrix.Clone();
             for (int i = 0; i < C.RowCount; i++)
             {
                 for (int j = i; j < C.ColumnCount; j++)
@@ -76,74 +82,54 @@ namespace TfmrLib
                     }
                 }
             }
-            Console.WriteLine($"C after: {C.RowSums().Sum()}");
+            
             return C;
         }
 
-        private void ReadInductances()
+        private void ReadMatrices()
         {
-            List<(string FileName, double NumericValue)> filesWithValues = new List<(string FileName, double NumericValue)>();
+            var L_matrices = new List<(double, Matrix<double>)>();
+            var R_matrices = new List<(double, Matrix<double>)>();
 
-            // Get all files in the directory
-            string[] files = Directory.GetFiles(DirectoryPath);
+            var LR_results = MFEMResultsReader.Read(LR_file);
 
-            // Regex to extract the numeric value from the filename
-            Regex regex = new Regex(@"L_getdp_(\d+\.\d+E\d+)", RegexOptions.IgnoreCase);
-
-            foreach (string file in files)
+            // Read the L matrices from the output directory and return them as a list of tuples (frequency, L matrix)
+            foreach (var sample in LR_results.Coupling.Samples)
             {
-                string fileName = Path.GetFileName(file);
-
-                // Check if the filename starts with 'L_getdp'
-                if (fileName.StartsWith("L_getdp", StringComparison.OrdinalIgnoreCase))
-                {
-                    Match match = regex.Match(fileName);
-                    if (match.Success)
-                    {
-                        // Convert the extracted string to a double
-                        double value = double.Parse(match.Groups[1].Value, System.Globalization.NumberStyles.Float);
-
-                        // Add both the filename and the numeric value to the list
-                        filesWithValues.Add((fileName, value));
-                    }
-                }
+                L_matrices.Add((sample.FrequencyHz, sample.InductanceMatrix));
+                R_matrices.Add((sample.FrequencyHz, sample.ResistanceMatrix));
             }
 
-            // Sort the list by the numeric value
-            filesWithValues.Sort((a, b) => a.NumericValue.CompareTo(b.NumericValue));
+            var C_results = MFEMResultsReader.Read(C_file);
+            C_matrix = C_results.Coupling.CapacitanceMatrix;
 
-            L_matrices = new List<(double Freq, Matrix<double> L_matrix)>();
-
-            // Output the sorted filenames and their values
-            foreach (var file in filesWithValues)
-            {
-                L_matrices.Add((file.NumericValue, DelimitedReader.Read<double>(DirectoryPath + "/" + file.FileName, false, ",", false)));
-            }
         }
 
-        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, FEM.FrequencySpec freq)
+        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f)
         {
-            int total_conductors = 0;
-            foreach (Winding wdg in tfmr.Windings)
+            if (f <= R_matrices[0].Freq) return R_matrices[0].R_matrix;
+            for (int i = 0; i < R_matrices.Count - 1; i++)
             {
-                total_conductors += wdg.NumConductors;
-            }
+               if (f >= R_matrices[i].Freq && f <= R_matrices[i + 1].Freq)
+               {
+                   double f1 = R_matrices[i].Freq;
+                   double f2 = R_matrices[i + 1].Freq;
+                   var R1 = R_matrices[i].R_matrix;
+                   var R2 = R_matrices[i + 1].R_matrix;
 
-            LinAlg.Matrix<double> R = LinAlg.Matrix<double>.Build.Dense(total_conductors, total_conductors);
-            double f = 60; //TODO: Handle frequency sweep
-            int start = 0;
-            foreach (Winding wdg in tfmr.Windings)
-            {
-                foreach (WindingSegment seg in wdg.Segments)
-                {
-                    var R_seg = seg.Geometry.Calc_Rmatrix(f);
-                    //R_seg.DisplayMatrixAsTable();
-                    R.SetSubMatrix(start, start, R_seg);
-                    start += seg.Geometry.NumConductors;
-                }
+                   return R1 + (R2 - R1) * (f - f1) / (f2 - f1);
+               }
             }
-            return R;
+            return R_matrices[R_matrices.Count - 1].R_matrix;
         }
+
+        public List<(double, Matrix<double>)> Calc_Rmatrix(Transformer tfmr, FrequencySpec freq)
+        {
+            
+            
+            return R_matrices;
+        }
+
 
         
     }

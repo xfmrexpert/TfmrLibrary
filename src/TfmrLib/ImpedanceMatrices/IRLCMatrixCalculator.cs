@@ -11,7 +11,9 @@ namespace TfmrLib
     {
         LinAlg.Matrix<double> Calc_Cmatrix(Transformer tfmr);
         List<(double, LinAlg.Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FEM.FrequencySpec f);
-        LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, FEM.FrequencySpec f);
+        LinAlg.Matrix<double> Calc_Lmatrix(Transformer tfmr, double f);
+        List<(double, LinAlg.Matrix<double>)> Calc_Rmatrix(Transformer tfmr, FEM.FrequencySpec f);
+        LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f);
     }
 
 }

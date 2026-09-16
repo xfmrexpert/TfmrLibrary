@@ -5,13 +5,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
+using TfmrLib;
 
 namespace TfmrLib
 {
     public class AnalyticMatrixCalculator : IRLCMatrixCalculator
     {
         //PUL Inductances
-        
+        public Matrix<double> Calc_Lmatrix(Transformer tfmr, double freq)
+        {
+            return Calc_Lmatrix(tfmr, new FEM.FrequencySpec.Scalar(freq)).First().Item2;
+        }
+
         public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FEM.FrequencySpec freq)
         {
             int total_conductors = 0;
@@ -250,7 +255,12 @@ namespace TfmrLib
             return C;
         }
 
-        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, FEM.FrequencySpec freq)
+        public List<(double, Matrix<double>)> Calc_Rmatrix(Transformer tfrm, FEM.FrequencySpec freq)
+        {
+            return null;
+        }
+
+        public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double freq)
         {
             //TODO: Implement frequency-dependent resistance calculations
             int total_conductors = 0;

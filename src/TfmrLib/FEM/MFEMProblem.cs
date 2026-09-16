@@ -48,12 +48,11 @@ namespace TfmrLib.FEM
         public AmrSettings? Amr { get; set; }
 
         /// <summary>
-        /// Path the solver will write results to (Gmsh MSH 2.2 ASCII, with $NodeData /
-        /// $ElementNodeData / $ElementData views). Defaults to
-        /// "&lt;MeshFile-without-extension&gt;.results.msh" (the solver writes its output
+        /// File the solver will write results to (HDF5 format only for now). Defaults to
+        /// "&lt;MeshFile-without-extension&gt;.results.h5" (the solver writes its output
         /// next to the input mesh, not next to the case JSON).
         /// </summary>
-        public string? ResultsPath { get; set; }
+        public string? ResultsFile { get; set; }
 
         /// <summary>
         /// Last error reported while loading the solver's output (or null on success).
@@ -90,6 +89,12 @@ namespace TfmrLib.FEM
             if (!string.IsNullOrEmpty(caseDir))
                 Directory.CreateDirectory(caseDir);
 
+            var resultsFile = ResultsFile;
+            if (!Path.IsPathFullyQualified(resultsFile))
+            {
+                resultsFile = caseDir + "/" + resultsFile;
+            }
+
             // Write out JSON file for the MFEM-ElectroMag solver
             using var stream = new FileStream(Filename, FileMode.Create, FileAccess.Write);
             //using var stream = new StreamWriter(Filename);
@@ -105,7 +110,6 @@ namespace TfmrLib.FEM
                 writer.WriteNumber("solver_tolerance", 1e-12);
                 writer.WriteNumber("solver_max_iter", 2000);
                 writer.WriteNumber("solver_print_level", 1);
-                writer.WriteBoolean("output_gmsh", true);
 
                 // The "amr" block is emitted only when adaptive refinement is requested,
                 // so older solver builds (and the default config) see the exact JSON they
@@ -117,7 +121,7 @@ namespace TfmrLib.FEM
                     var inv = System.Globalization.CultureInfo.InvariantCulture;
                     var amr = Amr!;
                     writer.WriteStartObject("amr");
-                    writer.WriteBoolean("enabled", false);
+                    writer.WriteBoolean("enabled", true);
                     writer.WriteNumber("max_iterations", amr.MaxIterations);
                     writer.WriteNumber("max_dofs", amr.MaxDofs);
                     writer.WriteNumber("error_fraction", amr.ErrorFraction);
@@ -126,6 +130,12 @@ namespace TfmrLib.FEM
                     writer.WriteEndObject(); // end of amr block
                 }
                 writer.WriteEndObject(); // end of simulation block
+                writer.WriteStartObject("output");
+                writer.WriteBoolean("export_fields_for_coupling_matrix", false);
+                writer.WriteStartObject("hdf5");
+                writer.WriteString("file", resultsFile);
+                writer.WriteEndObject(); // End of hdf5 block
+                writer.WriteEndObject(); // End of output block
                 writer.WriteStartArray("entity_groups");
                 foreach (var group in EntityGroups)
                 {
@@ -199,7 +209,7 @@ namespace TfmrLib.FEM
                 {
                     writer.WriteStartObject(); // start scenario
                     writer.WriteString("name", scenario.Name);
-                    if (AnalysisType == AnalysisType.CouplingMatrix)
+                    if (PhysicsType == PhysicsType.Magnetoquasistatics)
                     {
                         if (scenario.Frequency is FrequencySpec.Scalar scalar)
                         {
@@ -300,6 +310,10 @@ namespace TfmrLib.FEM
                 if (detail.Length > 0)
                     message += $"{Environment.NewLine}{detail}";
                 throw new Exception(message);
+            }
+            else
+            {
+                TryLoadSolution();
             }
 
         }
@@ -416,137 +430,31 @@ namespace TfmrLib.FEM
         {
             LastLoadError = null;
 
-            if (string.IsNullOrEmpty(ResultsPath))
+            if (string.IsNullOrEmpty(ResultsFile))
             {
-                LastLoadError = "ResultsFile path was not set.";
+                LastLoadError = "ResultsFile was not set.";
                 ReportMessage("error", LastLoadError);
                 return;
             }
 
-            if (!File.Exists(ResultsPath))
+            if (!File.Exists(ResultsFile))
             {
-                ReportMessage("error", $"Results file '{ResultsPath}' not found.");
+                ReportMessage("error", $"Results file '{ResultsFile}' not found.");
                 return;
             }
 
             try
             {
-                Solution = FEMSolution.Load(ResultsPath);
-                ReportMessage("status", $"Loaded FEM solution from {ResultsPath} " +
-                    $"(nodal views: {Solution.NodalScalars.Count}, " +
-                    $"element-nodal views: {Solution.ElementNodalFields.Count}, " +
-                    $"element views: {Solution.ElementFields.Count}).");
+                Results = MFEMResultsReader.Read(ResultsFile);
+                ReportMessage("status", $"Read FEM results from {ResultsFile} ");
             }
             catch (Exception ex)
             {
-                LastLoadError = $"Failed to load FEM results from '{ResultsPath}': {ex.Message}";
+                LastLoadError = $"Failed to load FEM results from '{ResultsFile}': {ex.Message}";
                 ReportMessage("error", LastLoadError);
             }
         }
 
-        //TODO: This needs to be updated to loop through files for different frequencies
-        public List<(double, Matrix<double>)> ReadCouplingMatrices()
-        {
-            if (!Path.Exists(ResultsPath))
-                throw new FileNotFoundException($"MFEM Results path '{ResultsPath}' not found.");
-
-            var matrices = new List<(double, Matrix<double>)>();
-
-            // The solver encodes the frequency in the file name, but not always as a bare
-            // invariant-culture number: it may carry a unit suffix ("60Hz", "1e3_Hz"), a
-            // leading scenario tag ("LMatrix_60Hz") or a trailing one ("60Hz_LMatrix").
-            // Scan for the numeric token anywhere in the name instead of requiring it to be
-            // the leading characters, preferring the one immediately followed by a "Hz" unit.
-            static bool TryParseFrequency(string text, out double frequency)
-            {
-                frequency = 0.0;
-                if (string.IsNullOrWhiteSpace(text))
-                    return false;
-
-                // Number (optionally signed, with decimals/exponent) followed by an optional
-                // separator and an optional "Hz" unit.
-                var matches = Regex.Matches(
-                    text.Trim(),
-                    @"(?<num>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*[_\-]?\s*(?<unit>[Hh][Zz])?");
-
-                Match? candidate = null;
-                foreach (Match m in matches)
-                {
-                    if (!m.Success || m.Groups["num"].Length == 0)
-                        continue;
-
-                    // A number with an explicit "Hz" unit wins outright.
-                    if (m.Groups["unit"].Success)
-                    {
-                        candidate = m;
-                        break;
-                    }
-
-                    // Otherwise remember the last bare number as a fallback.
-                    candidate ??= m;
-                }
-
-                if (candidate is null)
-                    return false;
-
-                return double.TryParse(
-                    candidate.Groups["num"].Value,
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out frequency);
-            }
-
-            foreach (var matrix_file in Directory.GetFiles(ResultsPath, "inductance_matrix_*.csv"))
-            {
-                var fileName = Path.GetFileNameWithoutExtension(matrix_file);
-                var freqPart = fileName.Substring("inductance_matrix_".Length);
-                if (!TryParseFrequency(freqPart, out double freq))
-                {
-                    throw new FormatException(
-                        $"Could not parse a frequency from inductance matrix file name '{fileName}'. " +
-                        $"Expected a name of the form 'inductance_matrix_<frequency>[Hz].csv' (file: '{matrix_file}').");
-                }
-
-                ReportMessage("status", $"Found inductance matrix for frequency {freq} Hz: {matrix_file}");
-
-                double[,] L_array = new double[Terminals.Count, Terminals.Count];
-
-                using var resultFile = File.OpenText(matrix_file);
-                int row = 0;
-                while (!resultFile.EndOfStream)
-                {
-                    string? line = resultFile.ReadLine();
-                    if (line == null) break;
-
-                    var tokens = line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (tokens.Length == 0) continue;
-
-                    // The solver writes a header row (e.g. "Terminal0,Terminal1,...") and may
-                    // include comment lines; skip anything that isn't purely numeric.
-                    var values = new double[tokens.Length-1];
-                    bool isNumericRow = true;
-                    for (int i = 1; i < tokens.Length; i++) // Start from 1 to skip the first token (terminal name)
-                    {
-                        if (!double.TryParse(tokens[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out values[i-1]))
-                        {
-                            isNumericRow = false;
-                            break;
-                        }
-                    }
-                    if (!isNumericRow) continue;
-
-                    if (row >= Terminals.Count) break;
-
-                    for (int col = 0; col < values.Length && col < Terminals.Count; col++)
-                    {
-                        L_array[row, col] = values[col];
-                    }
-                    row++;
-                }
-                matrices.Add((freq, Matrix<double>.Build.DenseOfArray(L_array)));
-            }
-            return matrices;
-        }
     }
 
     /// <summary>

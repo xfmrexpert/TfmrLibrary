@@ -43,7 +43,7 @@ namespace TfmrLib.FEM
         /// Populated by <see cref="Solve"/> in derived classes once a solution has been
         /// computed and (optionally) loaded back from the solver's output.
         /// </summary>
-        public FEMSolution? Solution { get; protected set; }
+        public FEMResults? Results { get; protected set; }
 
         public virtual void Solve()
         {
