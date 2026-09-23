@@ -14,6 +14,7 @@ using LinAlg = MathNet.Numerics.LinearAlgebra;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 using System.Numerics;
 using System.ComponentModel.DataAnnotations;
+using System.Net;
 
 namespace TfmrLib
 {
@@ -30,12 +31,37 @@ namespace TfmrLib
 
         private List<(double, Matrix<double>)> R_matrices = new(); 
 
-        private void GenerateMesh(Transformer tfmr, int meshorder = 2)
+        private void GenerateMesh(Transformer tfmr, int meshorder = 2, bool includeCdrSurfaces = true)
         {
             var meshGen = new MeshGenerator();
+            meshGen.OutputReceived += message =>
+            {
+                var level = message.TrimStart() switch
+                {
+                    var text when text.StartsWith("Error", StringComparison.OrdinalIgnoreCase)
+                        => "error",
+                    var text when text.StartsWith("Warning", StringComparison.OrdinalIgnoreCase)
+                        => "warning",
+                    _ => "info"
+                };
+
+                if (ProgressChanged is { } handler)
+                    handler(new MFEMProgressEvent(
+                        MFEMProgressEventType.Message,
+                        Name: "Gmsh",
+                        Level: level,
+                        Message: message));
+                else
+                    Console.WriteLine(message);
+            };
             var geometry = tfmr.GenerateGeometry();
             double meshscale = 10.0;
-            meshGen.AddGeometry(geometry);
+            Func<GeomSurface, bool> includeSurface = surface =>
+                includeCdrSurfaces ||
+                !tfmr.TagManager.TryGetLocationByTag(surface.Tag, out _, out var tagType) ||
+                tagType != TagType.ConductorSurface;
+
+            meshGen.AddGeometry(geometry, includeSurface);
             var geoFile = "case.geo";
             meshFile = "case.msh";
             mesh = meshGen.GenerateMesh(geoFile, meshscale, meshorder);
@@ -91,10 +117,10 @@ namespace TfmrLib
             fem.Materials.Add(copper);
             fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
             fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
-            fem.EntityGroups.Add(new EntityGroup() { Name = "Axis", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
-            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Axis", EntityGroupName = "Axis", Potential = 0.0 });
-            fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
-            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreLeg", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", EntityGroupName = "CoreLeg", Potential = 0.0 });
+            //fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            //fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
             int globalTurn = 0;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {
@@ -124,7 +150,7 @@ namespace TfmrLib
                     }
                 }
             }
-            fem.Scenarios.Add(new Scenario { Name = "LMatrix", Frequency = freq });
+            fem.Scenarios.Add(new Scenario { Name = "Lmatrix", Frequency = freq });
 
             fem.Solve();
 
@@ -152,7 +178,7 @@ namespace TfmrLib
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
             int order = 2;
-            GenerateMesh(tfmr, order);
+            GenerateMesh(tfmr, order, includeCdrSurfaces: false);
             var fem = new MFEMProblem();
             fem.ProgressChanged += e => ProgressChanged?.Invoke(e);
             fem.AnalysisType = AnalysisType.CouplingMatrix;
@@ -160,7 +186,7 @@ namespace TfmrLib
             fem.GeometryType = GeometryType.Axisymmetric;
             fem.MeshPath = meshFile;
             fem.Filename = $"./Cmatrix.json";
-            fem.ResultsFile = $"CMatrix.h5";
+            fem.ResultsFile = $"Cmatrix.h5";
 
             var oil = new Material("Oil")
             {
@@ -199,7 +225,7 @@ namespace TfmrLib
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
                                 var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
                                 var regionIns = new Region() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
-                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) } };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
                                 //var regionCond = new Region() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name, Material = copper };
                                 fem.EntityGroups.Add(groupIns);
                                 fem.EntityGroups.Add(groupCond);
@@ -211,7 +237,7 @@ namespace TfmrLib
                     }
                 }
             }
-            fem.Scenarios.Add(new Scenario { Name = "CMatrix" });
+            fem.Scenarios.Add(new Scenario { Name = "Cmatrix" });
 
             fem.Solve();
 

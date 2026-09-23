@@ -255,6 +255,7 @@ namespace TfmrLib.FEM
 
         public override void Solve()
         {
+            ReportMessage("status", "Solving...");
             string mfem_exe = FindMFEMExecutable();
             ReportMessage("status", $"Using MFEM-ElectroMag at: {mfem_exe}");
 

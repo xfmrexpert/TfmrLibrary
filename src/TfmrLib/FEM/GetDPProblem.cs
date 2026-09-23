@@ -520,7 +520,8 @@ namespace TfmrLib.FEM
             fem.Materials.Add(paper);
             //fem.Materials.Add(conductor);
             fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
-            if (tfmr.Core.CoreLegRadius_mm > 0)
+            var core = tfmr.Core as Core;
+            if (core.CoreLegRadius_mm > 0)
             {
                 fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", EntityGroupName = "CoreLeg", Potential = 0.0 });
             }

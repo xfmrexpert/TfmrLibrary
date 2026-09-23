@@ -123,8 +123,8 @@ namespace TfmrLib
             // A = [           0              -Gamma*(R+j*2*pi*f*L)]
             //     [ -Gamma*(G+j*2*pi*f*C)                0        ]
             Matrix_c A11 = M_c.Dense(total_cdrs, total_cdrs);
-            Matrix_c A12 = -Gamma.ToComplex() * (R_f.ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * L.ToComplex());
-            Matrix_c A21 = -Gamma.ToComplex() * ((Math.Tan(Tfmr.ins_loss_factor) * 2d * Math.PI * f * C).ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * C.ToComplex());
+            Matrix_c A12 = -(R_f.ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * L.ToComplex());
+            Matrix_c A21 = -((Math.Tan(Tfmr.ins_loss_factor) * 2d * Math.PI * f * C).ToComplex() + Complex.ImaginaryOne * 2d * Math.PI * f * C.ToComplex());
             Matrix_c A22 = M_c.Dense(total_cdrs, total_cdrs);
             //Matrix_c A1 = M_c.Dense(Wdg.num_turns, Wdg.num_turns).Append(A12);
             //Matrix_c A2 = A21.Append(M_c.Dense(Wdg.num_turns, Wdg.num_turns));
@@ -167,8 +167,6 @@ namespace TfmrLib
                 total_turns += wdg.NumTurns;
             }
 
-            C = MatrixCalculator.Calc_Cmatrix(Tfmr);
-
             Gamma = M_d.Dense(total_turns, total_turns);
 
             // Gamma is the diagonal matrix of conductors radii (eq. 2)
@@ -182,6 +180,8 @@ namespace TfmrLib
                     start += seg.Geometry.NumConductors;
                 }
             }    
+
+            C = MatrixCalculator.Calc_Cmatrix(Tfmr);
             
             HA = MTLTerminalMatrixFactory.CalcHA(Tfmr);
         }

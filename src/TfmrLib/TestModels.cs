@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -161,13 +162,12 @@ namespace TfmrLib
         {
             var transformer = new Transformer
             {
-                Core = new Core
+                Core = new CoreFacsimile
                 {
-                    CoreLegRadius_mm = Conversions.in_to_mm(12.1),
-                    NumLegs = 1,
-                    NumWoundLegs = 1,
-                    WindowWidth_mm = Conversions.in_to_mm(40.0),
-                    WindowHeight_mm = Conversions.in_to_mm(40.0)
+                    OuterRadius_mm = Conversions.in_to_mm(12.1),
+                    Thickness_mm = Conversions.in_to_mm(0.01),
+                    Conductivity = 3.5e7, // S/m
+                    ClosedLoop = false
                 },
                 Windings =
                 {

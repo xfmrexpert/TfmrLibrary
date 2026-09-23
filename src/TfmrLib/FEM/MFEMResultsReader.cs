@@ -41,19 +41,19 @@ namespace TfmrLib.FEM
 
             if (analysisType == AnalysisType.CouplingMatrix)
             {
-                var frequencies = coupling.Dataset("frequency_hz").Read<double[]>();
                 var terminalNames = coupling.Dataset("terminal_names").Read<string[]>();
-
-                var inductanceDataset = coupling.Dataset("Inductance/values");
-                var inductanceValues = inductanceDataset.Read<double[]>();
-
-                var resistanceDataset = coupling.Dataset("Resistance/values");
-                var resistanceValues = resistanceDataset.Read<double[]>();
 
                 int n = terminalNames.Length;
 
                 if (physicsType == PhysicsType.Magnetoquasistatics)
                 {
+                    var inductanceDataset = coupling.Dataset("Inductance/values");
+                    var inductanceValues = inductanceDataset.Read<double[]>();
+
+                    var resistanceDataset = coupling.Dataset("Resistance/values");
+                    var resistanceValues = resistanceDataset.Read<double[]>();
+
+                    var frequencies = coupling.Dataset("frequency_hz").Read<double[]>();
                     var samples = new List<MQSCouplingSample>();
                     for (int i = 0; i < frequencies.Length; ++i)
                     {
@@ -78,11 +78,24 @@ namespace TfmrLib.FEM
                 else if (physicsType == PhysicsType.Electrostatics)
                 {
                     // Read capacitance matrix
+                    var capacitanceDataset = coupling.Dataset("Capacitance/values");
+                    var capacitanceValues = capacitanceDataset.Read<double[]>();
+                    var capacitanceMatrix = Matrix<double>.Build.Dense(n, n);
+                    for (int r = 0; r < n; ++r)
+                    {
+                        for (int c = 0; c < n; ++c)
+                        {
+                            int offset = r * n + c;
+                            capacitanceMatrix[r, c] = capacitanceValues[offset];
+                        }
+                    }
+                    var couplingResults = new CouplingResults { TerminalNames = terminalNames.ToList(), CapacitanceMatrix = capacitanceMatrix };
+                    return new FEMResults { PhysicsType = physicsType, AnalysisType = analysisType, GeometryType = geometryType, Coupling = couplingResults };
                 }
                 else
                 {
                     // Must be magnetostatic, so read static InductanceMatrix
-
+                    throw new NotImplementedException();
                 }
             }
 

@@ -38,6 +38,7 @@ namespace TfmrLib
 
         public Matrix<double> Calc_Lmatrix(Transformer tfmr, double f)
         {
+            if (L_matrices is null) ReadMatrices();
             if (f <= L_matrices[0].Freq) return L_matrices[0].L_matrix * InductanceFudgeFactor;
             for (int i = 0; i < L_matrices.Count - 1; i++)
             {
@@ -57,12 +58,14 @@ namespace TfmrLib
         // PUL Inductances
         public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FrequencySpec freq)
         {
+            if (L_matrices is null) ReadMatrices();
             return L_matrices;
         }
 
         //PUL Capacitances
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
+            if (C_matrix is null) ReadMatrices();
             var C = C_matrix.Clone();
             for (int i = 0; i < C.RowCount; i++)
             {
@@ -88,8 +91,8 @@ namespace TfmrLib
 
         private void ReadMatrices()
         {
-            var L_matrices = new List<(double, Matrix<double>)>();
-            var R_matrices = new List<(double, Matrix<double>)>();
+            L_matrices = new List<(double, Matrix<double>)>();
+            R_matrices = new List<(double, Matrix<double>)>();
 
             var LR_results = MFEMResultsReader.Read(LR_file);
 
@@ -107,6 +110,7 @@ namespace TfmrLib
 
         public LinAlg.Matrix<double> Calc_Rmatrix(Transformer tfmr, double f)
         {
+            if (R_matrices is null) ReadMatrices();
             if (f <= R_matrices[0].Freq) return R_matrices[0].R_matrix;
             for (int i = 0; i < R_matrices.Count - 1; i++)
             {
@@ -125,7 +129,7 @@ namespace TfmrLib
 
         public List<(double, Matrix<double>)> Calc_Rmatrix(Transformer tfmr, FrequencySpec freq)
         {
-            
+            if (L_matrices is null) ReadMatrices();
             
             return R_matrices;
         }

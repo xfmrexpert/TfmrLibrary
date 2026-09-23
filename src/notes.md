@@ -20,3 +20,17 @@ We'll have to define the connectivity in some way to start.  Right now, the idea
 requires keeping a list of incident entities so that we can select one of the node objects and "repoint" the other enties to the selected 
 node. An alternative would be to use a node key or ID, but that would still require some form of pruning pass to take all of the joined IDs
 and assign them to one node ID.
+
+# Physical-to-Electrical Indexing
+We need to have a global system of indexing turns so that whatever is turn 0 in the RLC matrices or the subsequent models is properly mapped
+to a physical conductor. I'm presently not sure if it makes sense to index by physical or electrical location. I suppose there can be 
+arguments both ways. Regardless, the convention needs to be explicit and we need to be able to readily translate back and forth.
+
+Right now, we have per-winding-segment mapping as part of the WindingGeometry classes that map a "conductor index" to the electrical turn/strand. 
+This is kept in a couple of dictionaries ConductorIndexToElectricalLocation and it's inverse ElectricalLocationToConductorIndex. 
+
+There was
+also a ConductorPhysicalLocation record that would capture disc/layer position info, but that never got implemented.
+
+The quickest path to a deterministic global conductor index is to 1) ensure a deterministic indexing of the winding segments and then 2)
+capture the offset for each WindingSegment that denotes the start of its portion of the global index space.

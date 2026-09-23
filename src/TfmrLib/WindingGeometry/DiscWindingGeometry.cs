@@ -5,6 +5,7 @@ using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
 namespace TfmrLib
 {
+    //TODO: Need to support axial duct space within discs (clack bands)
     public class DiscWindingGeometry : WindingGeometry
     {
         // Public properties

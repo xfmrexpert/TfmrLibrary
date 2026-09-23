@@ -11,8 +11,8 @@ namespace TfmrLib
 {
     public class Transformer
     {
-        private Core _core;
-        public Core Core
+        private ICore _core;
+        public ICore Core
         {
             get => _core;
             set
