@@ -48,24 +48,24 @@ namespace TfmrLib
             var window_UL = geometry.AddPoint(OuterRadius_mm / 1000.0, WindowHeight_mm / 1000.0 / 2.0, 0.01);
             var window_UR = geometry.AddPoint((OuterRadius_mm + WindowWidth_mm) / 1000.0, WindowHeight_mm / 1000.0 / 2.0, 0.01);
             var window_LR = geometry.AddPoint((OuterRadius_mm + WindowWidth_mm) / 1000.0, -WindowHeight_mm / 1000.0 / 2.0, 0.01);
-            var core_LL = geometry.AddPoint((OuterRadius_mm - Thickness_mm) / 1000.0, -WindowHeight_mm / 1000.0 / 2.0, 0.01);
-            var core_UL = geometry.AddPoint((OuterRadius_mm - Thickness_mm) / 1000.0, WindowHeight_mm / 1000.0 / 2.0, 0.01);
+            //var core_LL = geometry.AddPoint((OuterRadius_mm - Thickness_mm) / 1000.0, -WindowHeight_mm / 1000.0 / 2.0, 0.01);
+            //var core_UL = geometry.AddPoint((OuterRadius_mm - Thickness_mm) / 1000.0, WindowHeight_mm / 1000.0 / 2.0, 0.01);
             var core_UR = window_UL;
             var core_LR = window_LL;
-            var axis_lower = geometry.AddPoint(0.0,  -WindowHeight_mm / 1000.0 / 2.0, 0.01);
-            var axis_upper = geometry.AddPoint(0.0,  WindowHeight_mm / 1000.0 / 2.0, 0.01);
-            var axis = geometry.AddLine(axis_lower, axis_upper);
-            Tags.TagEntityByString(axis, "Axis");
-            var air_top = geometry.AddLine(axis_upper, core_UL);
-            var air_bottom = geometry.AddLine(core_LL, axis_lower);
+            //var axis_lower = geometry.AddPoint(0.0,  -WindowHeight_mm / 1000.0 / 2.0, 0.01);
+            //var axis_upper = geometry.AddPoint(0.0,  WindowHeight_mm / 1000.0 / 2.0, 0.01);
+            //var axis = geometry.AddLine(axis_lower, axis_upper);
+            //Tags.TagEntityByString(axis, "Axis");
+            //var air_top = geometry.AddLine(axis_upper, core_UL);
+            //var air_bottom = geometry.AddLine(core_LL, axis_lower);
             var core_outer = geometry.AddLine(core_LR, core_UR);
             Tags.TagEntityByString(core_outer, "CoreLeg_Outer");
-            var core_top = geometry.AddLine(core_UL, core_UR);
-            Tags.TagEntityByString(core_top, "CoreLeg_Top");
-            var core_inner = geometry.AddLine(core_LL, core_UL);
-            Tags.TagEntityByString(core_inner, "CoreLeg_Inner");
-            var core_bottom = geometry.AddLine(core_LR, core_LL);
-            Tags.TagEntityByString(core_top, "CoreLeg_Bottom");
+            //var core_top = geometry.AddLine(core_UL, core_UR);
+            //Tags.TagEntityByString(core_top, "CoreLeg_Top");
+            //var core_inner = geometry.AddLine(core_LL, core_UL);
+            //Tags.TagEntityByString(core_inner, "CoreLeg_Inner");
+            //var core_bottom = geometry.AddLine(core_LR, core_LL);
+            //Tags.TagEntityByString(core_top, "CoreLeg_Bottom");
             var top_yoke = geometry.AddLine(window_UL, window_UR);
             Tags.TagEntityByString(top_yoke, "TopYoke");
             var right_edge = geometry.AddLine(window_UR, window_LR);
@@ -73,9 +73,15 @@ namespace TfmrLib
             var bottom_yoke = geometry.AddLine(window_LR, window_LL);
             Tags.TagEntityByString(bottom_yoke, "BottomYoke");
             var window_bdry = geometry.AddLineLoop(new[] { core_outer, top_yoke, right_edge, bottom_yoke });
-            var core_bdry = geometry.AddLineLoop(new[] { core_outer, core_bottom, core_inner, core_top });
-            var air_bdry = geometry.AddLineLoop(new [] { axis, air_top, core_inner, air_bottom });
-            return window_bdry; // TODO: Figure out what to return here!!!
+            //var core_bdry = geometry.AddLineLoop(new[] { core_outer, core_bottom, core_inner, core_top });
+            //Tags.TagEntityByString(core_bdry, "CoreFacsimileBdry");
+            //var air_bdry = geometry.AddLineLoop(new [] { axis, air_top, core_inner, air_bottom });
+            //var air_surface = geometry.AddSurface(air_bdry, core_bdry);
+            //Tags.TagEntityByString(air_surface, "AirCore");
+            //var core_surface = geometry.AddSurface(core_bdry);
+            //Tags.TagEntityByString(core_surface, "CoreFacsimile");
+            //var outer_bdry = geometry.AddLineLoop(new[] { axis, air_top, core_top, top_yoke, right_edge, bottom_yoke, core_bottom, air_bottom});
+            return window_bdry;
         }
     }
 

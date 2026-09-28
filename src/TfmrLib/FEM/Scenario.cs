@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public class Scenario : INamed
+    public class Scenario
     {
         public string Name { get; init; }
         public List<Excitation> Excitations { get; set; }

@@ -1,6 +1,6 @@
 namespace TfmrLib.FEM
 {
-    public class Material : INamed
+    public class Material
     {
         public string Name { get; }
         // Scalar properties used in GetDP (add as needed)

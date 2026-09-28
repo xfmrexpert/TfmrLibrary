@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TfmrLib.FEM
 {
-    public partial class Region : INamed
+    public partial class Region
     {
         public string Name { get; init; }
         public string EntityGroupName { get; set; } = string.Empty;

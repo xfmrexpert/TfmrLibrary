@@ -21,7 +21,6 @@ namespace TfmrLib
         private readonly ObservableCollection<WindingSegment> _segments = new();
         public IList<WindingSegment> Segments => _segments;
 
-        public List<InternalConnection> InternalConnections { get; } = new();
         public List<Terminal> Terminals { get; } = new();
 
         public int NumTurns
@@ -77,11 +76,6 @@ namespace TfmrLib
             for (int i = 0; i < Segments.Count; i++)
             {
                 Segments[i].Initialize(this, graph, i);
-            }
-
-            foreach (var conn in InternalConnections)
-            {
-                conn.Apply(this, graph);
             }
 
             foreach (var term in Terminals)

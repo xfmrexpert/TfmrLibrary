@@ -1,6 +1,6 @@
 namespace TfmrLib.FEM
 {
-    public class Excitation : INamed
+    public class Excitation
     {
         public string Name { get; init; }
         public string TerminalName { get; set; }

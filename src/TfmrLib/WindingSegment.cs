@@ -66,9 +66,10 @@ namespace TfmrLib
             int totalTurns = Geometry?.NumTurns ?? 0;
 
             // Sort taps by turn number
+            // Note this will quietly drop taps with TurnNumber >= NumTurns
             var sortedTaps = Taps.OrderBy(t => t.TurnNumber).Where(t => t.TurnNumber > 0 && t.TurnNumber < totalTurns).ToList();
 
-            // Define "cuts" - 0, taps..., total
+            // Define "cuts" (discrete sections between terminal nodes, e.g. start/end or tap) - 0, taps..., total
             var cuts = new List<int> { 0 };
             cuts.AddRange(sortedTaps.Select(t => t.TurnNumber));
             cuts.Add(totalTurns);
@@ -77,21 +78,22 @@ namespace TfmrLib
             var nodes = new List<Node>();
             
             // Start Node
-            nodes.Add(graph.CreateNode($"W{parent.Id}_S{id}_Start"));
+            nodes.Add(graph.CreateNode($"Wdg{parent.Id}_Seg{id}_Start"));
 
             // Tap Nodes
             for (int i = 0; i < sortedTaps.Count; i++)
             {
                 var tap = sortedTaps[i];
-                var n = graph.CreateNode($"W{parent.Id}_S{id}_Tap_{tap.Label}");
+                var n = graph.CreateNode($"Wdg{parent.Id}_Seg{id}_Tap_{tap.Label}");
                 tap.Node = n;
                 nodes.Add(n);
             }
 
             // End Node
-            nodes.Add(graph.CreateNode($"W{parent.Id}_S{id}_End"));
+            nodes.Add(graph.CreateNode($"Wdg{parent.Id}_Seg{id}_End"));
 
             // Create Branches
+            // TODO: Do parallel strands need separate branches? Likely
             Branches.Clear();
             for (int i = 0; i < cuts.Count - 1; i++)
             {

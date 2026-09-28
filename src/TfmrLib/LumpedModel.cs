@@ -93,6 +93,39 @@ namespace TfmrLib
             return Q;
         }
 
+        private Matrix<double> CalcIncidenceMatrixForSeg(WindingSegment seg)
+        {
+            var seg_geo = seg.Geometry;
+            int n_branches = seg_geo.NumConductors;
+            int n_nodes = seg_geo.NumConductors;
+            Matrix_d Q_seg = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors); // Start with all 0s
+            Matrix_d HA12 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            Q_seg[0, 0] = 1;
+            int row = 1;
+            for (int turn = 0; turn < seg_geo.NumTurns - 1; turn++) // Start at end of first turn
+            {
+                for (int strand = 0; strand < seg_geo.NumParallelConductors; strand++)
+                {
+                    // For each strand, we want to tie the end of [turn] to the start of [turn+1]
+                    var cdr_idx = seg_geo.GetConductorIndex(turn, strand);
+                    var cdr_idx_next = seg_geo.GetConductorIndex(turn + 1, strand);
+                    Q_seg[row, cdr_idx_next] = 1;
+                    HA12[row, cdr_idx] = -1;
+                    row++;
+                }
+            }
+            Matrix_d HA1 = Q_seg.Append(HA12);
+
+            // The remaining rows are typically constraints on current (KCL), but we do need to set the final boundary condition
+            Matrix_d HA21 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            Matrix_d HA22 = M_d.Dense(seg_geo.NumConductors, seg_geo.NumConductors);
+            HA22[seg_geo.NumConductors - 1, seg_geo.NumConductors - 1] = 1.0;
+
+            Matrix_d HA2 = HA21.Append(HA22);
+
+            return HA1.Stack(HA2);
+        }
+
         public override (Complex Z_term, Vector_c V_EndOfTurn) CalcResponseAtFreq(double f)
         {
             Vector_c V_TurnEnd_AtF = V_c.Dense(total_turns-1);

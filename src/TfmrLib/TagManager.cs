@@ -17,7 +17,8 @@ namespace TfmrLib
         ConductorBoundary,
         ConductorSurface,
         InsulationBoundary,
-        InsulationSurface
+        InsulationSurface,
+        CoreSurface
     }
 
     // Immutable composite key for the winding location

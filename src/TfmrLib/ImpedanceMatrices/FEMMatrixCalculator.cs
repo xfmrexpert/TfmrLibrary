@@ -15,6 +15,7 @@ using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 using System.Numerics;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
+using System.Globalization;
 
 namespace TfmrLib
 {
@@ -112,13 +113,24 @@ namespace TfmrLib
                 { "sigma", 5.96e7 } }
             };
 
+            var aluminum = new Material("Aluminum")
+            {
+                Properties = new Dictionary<string, double> {
+                { "mu_r", 1.0 },
+                { "sigma", 3.5e7 } }
+            };
+
             fem.Materials.Add(oil);
             fem.Materials.Add(paper);
             fem.Materials.Add(copper);
+            fem.Materials.Add(aluminum);
             fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
             fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
-            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreLeg", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
-            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", EntityGroupName = "CoreLeg", Potential = 0.0 });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreFacsimile", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreFacsimile")}});
+            fem.Regions.Add(new Region() { Name = "Core", EntityGroupName = "CoreFacsimile", Material = aluminum});
+
+            //fem.EntityGroups.Add(new EntityGroup() { Name = "CoreLeg", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
+            //fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", EntityGroupName = "CoreLeg", Potential = 0.0 });
             //fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
             //fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
             int globalTurn = 0;
@@ -204,10 +216,10 @@ namespace TfmrLib
             fem.Materials.Add(paper);
             fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
             fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
-            fem.EntityGroups.Add(new EntityGroup() { Name = "Axis", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
-            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Axis", EntityGroupName = "Axis", Potential = 0.0 });
-            fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
-            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreBdry", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg_Outer") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreBdry", EntityGroupName = "CoreBdry", Potential = 0.0 });
+            //fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            //fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
             int globalTurn = 0;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {

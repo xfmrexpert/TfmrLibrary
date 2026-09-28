@@ -27,7 +27,6 @@ namespace TfmrLib
 
         public Graph Graph { get; } = new();
 
-        public List<InternalConnection> InternalConnections { get; } = new();
         public List<Terminal> Terminals { get; } = new();
 
         private readonly ObservableCollection<Winding> _windings = new();

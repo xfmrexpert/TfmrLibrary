@@ -165,7 +165,9 @@ namespace TfmrLib
                 Core = new CoreFacsimile
                 {
                     OuterRadius_mm = Conversions.in_to_mm(12.1),
-                    Thickness_mm = Conversions.in_to_mm(0.01),
+                    Thickness_mm = Conversions.in_to_mm(0.1),
+                    WindowWidth_mm = Conversions.in_to_mm(80.0),
+                    WindowHeight_mm = Conversions.in_to_mm(80.0),
                     Conductivity = 3.5e7, // S/m
                     ClosedLoop = false
                 },
