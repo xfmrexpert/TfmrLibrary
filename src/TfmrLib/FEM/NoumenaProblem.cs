@@ -12,36 +12,31 @@ using MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib.FEM
 {
-    public enum MFEMProgressEventType
+    public enum NoumenaProgressEventType
     {
         Operation,
         Message
     }
 
-    public sealed record MFEMProgressEvent(
-        MFEMProgressEventType EventType,
+    public sealed record NoumenaProgressEvent(
+        NoumenaProgressEventType EventType,
         string? Name = null,
         string? State = null,
         double? ElapsedSeconds = null,
         string? Level = null,
         string? Message = null);
 
-    public class MFEMFile
-    {
-        
-    }
-
-    public class MFEMProblem : FEMProblem
+    public class NoumenaProblem : FEMProblem
     {
         public string Filename { get; set; } = "case.json";
 
-        public event Action<MFEMProgressEvent>? ProgressChanged;
+        public event Action<NoumenaProgressEvent>? ProgressChanged;
 
         /// <summary>
         /// Optional adaptive mesh refinement (AMR) configuration. When non-null and
         /// <see cref="AmrSettings.Enabled"/> is true, an <c>"amr"</c> block is written
         /// into the <c>"simulation"</c> section of the solver's case.json so the
-        /// MFEM-ElectroMag solver runs its estimate→mark→refine→re-solve loop and writes
+        /// Noumena solver runs its estimate→mark→refine→re-solve loop and writes
         /// the final refined mesh + fields back through the usual results.msh contract.
         /// Null (the default) reproduces the previous single-solve behaviour exactly.
         /// </summary>
@@ -61,17 +56,17 @@ namespace TfmrLib.FEM
         /// </summary>
         public string? LastLoadError { get; private set; }
 
-        private string FindMFEMExecutable()
+        private string FindNoumenaExecutable()
         {
             // Allow developer override (e.g. point at the CMake build output).
-            var fromEnv = Environment.GetEnvironmentVariable("MFEM_ELECTROMAG_EXE");
+            var fromEnv = Environment.GetEnvironmentVariable("NOUMENA_EXE");
             if (!string.IsNullOrWhiteSpace(fromEnv) && File.Exists(fromEnv))
                 return fromEnv;
 
-            return "mfem-electromag";
+            return "noumena";
         }
 
-        private void WriteMFEMFile()
+        private void WriteNoumenaFile()
         {
             // The solver resolves a relative "mesh" path relative to the case.json's own
             // directory, which is not necessarily where the mesh lives (e.g. a build-once /
@@ -95,7 +90,7 @@ namespace TfmrLib.FEM
                 resultsFile = caseDir + "/" + resultsFile;
             }
 
-            // Write out JSON file for the MFEM-ElectroMag solver
+            // Write out JSON file for the Noumena solver
             using var stream = new FileStream(Filename, FileMode.Create, FileAccess.Write);
             //using var stream = new StreamWriter(Filename);
             using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
@@ -256,15 +251,15 @@ namespace TfmrLib.FEM
         public override void Solve()
         {
             ReportMessage("status", "Solving...");
-            string mfem_exe = FindMFEMExecutable();
-            ReportMessage("status", $"Using MFEM-ElectroMag at: {mfem_exe}");
+            string noumena_exe = FindNoumenaExecutable();
+            ReportMessage("status", $"Using Noumena at: {noumena_exe}");
 
-            WriteMFEMFile();
+            WriteNoumenaFile();
 
             string args = $"{Filename}";
 
             using var process = new Process();
-            process.StartInfo.FileName = mfem_exe;
+            process.StartInfo.FileName = noumena_exe;
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.RedirectStandardOutput = true;
@@ -276,7 +271,7 @@ namespace TfmrLib.FEM
             var errors = new List<string>();
             var stderr = new StringBuilder();
 
-            ReportMessage("status", $"Running (background): {mfem_exe} {Filename} --machine-readable");
+            ReportMessage("status", $"Running (background): {noumena_exe} {Filename} --machine-readable");
             process.Start();
 
             Task stdoutTask = ReadStandardOutputAsync(process.StandardOutput, output, errors);
@@ -289,7 +284,7 @@ namespace TfmrLib.FEM
             //        process.Kill(entireProcessTree: true);
             //    process.WaitForExit();
             //    Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
-            //    throw new TimeoutException("MFEM-ElectroMag was terminated after exceeding the six-minute timeout.");
+            //    throw new TimeoutException("Noumena was terminated after exceeding the six-minute timeout.");
             //}
 
             Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
@@ -307,7 +302,7 @@ namespace TfmrLib.FEM
                 if (detail.Length > maxTail)
                     detail = "...(truncated)..." + Environment.NewLine + detail[^maxTail..];
 
-                string message = $"Failed to run MFEM-ElectroMag (exit {process.ExitCode}).";
+                string message = $"Failed to run Noumena (exit {process.ExitCode}).";
                 if (detail.Length > 0)
                     message += $"{Environment.NewLine}{detail}";
                 throw new Exception(message);
@@ -330,7 +325,7 @@ namespace TfmrLib.FEM
 
                 // Non machine-readable lines (e.g. banners from linked libraries) are still
                 // surfaced, but as progress messages so the host controls how they are shown.
-                if (!TryParseProgress(line, out MFEMProgressEvent? progress))
+                if (!TryParseProgress(line, out NoumenaProgressEvent? progress))
                 {
                     if (!string.IsNullOrWhiteSpace(line))
                         ReportMessage("diagnostic", line);
@@ -355,12 +350,12 @@ namespace TfmrLib.FEM
         }
 
         private void ReportMessage(string level, string message) =>
-            ProgressChanged?.Invoke(new MFEMProgressEvent(
-                MFEMProgressEventType.Message,
+            ProgressChanged?.Invoke(new NoumenaProgressEvent(
+                NoumenaProgressEventType.Message,
                 Level: level,
                 Message: message));
 
-        private bool TryParseProgress(string line, out MFEMProgressEvent? progress)
+        private bool TryParseProgress(string line, out NoumenaProgressEvent? progress)
         {
             progress = null;
 
@@ -386,8 +381,8 @@ namespace TfmrLib.FEM
                             elapsedElement.TryGetDouble(out double elapsed))
                             elapsedSeconds = elapsed;
 
-                        progress = new MFEMProgressEvent(
-                            MFEMProgressEventType.Operation,
+                        progress = new NoumenaProgressEvent(
+                            NoumenaProgressEventType.Operation,
                             Name: name,
                             State: state,
                             ElapsedSeconds: elapsedSeconds);
@@ -399,8 +394,8 @@ namespace TfmrLib.FEM
                             level is not ("status" or "solver" or "diagnostic" or "warning" or "error"))
                             return false;
 
-                        progress = new MFEMProgressEvent(
-                            MFEMProgressEventType.Message,
+                        progress = new NoumenaProgressEvent(
+                            NoumenaProgressEventType.Message,
                             Level: level,
                             Message: message);
                         return true;
@@ -411,7 +406,7 @@ namespace TfmrLib.FEM
             }
             catch (JsonException exception)
             {
-                ReportMessage("warning", $"Malformed MFEM-ElectroMag machine-readable output: {exception.Message}");
+                ReportMessage("warning", $"Malformed Noumena machine-readable output: {exception.Message}");
                 return false;
             }
         }
@@ -446,7 +441,7 @@ namespace TfmrLib.FEM
 
             try
             {
-                Results = MFEMResultsReader.Read(ResultsFile);
+                Results = NoumenaResultsReader.Read(ResultsFile);
                 ReportMessage("status", $"Read FEM results from {ResultsFile} ");
             }
             catch (Exception ex)
@@ -459,13 +454,12 @@ namespace TfmrLib.FEM
     }
 
     /// <summary>
-    /// Configuration for the MFEM-ElectroMag solver's adaptive mesh refinement (AMR)
+    /// Configuration for the Noumena solver's adaptive mesh refinement (AMR)
     /// loop. The solver estimates a per-element error (Zienkiewicz–Zhu on the recovered
     /// E-field), marks the worst elements, performs a <b>conforming</b> triangular
     /// refinement (no hanging nodes), and re-solves until a stopping criterion is met.
-    /// Conforming refinement keeps the returned mesh compatible with the existing
-    /// results consumers (triangle locator, P1 field sampler, mesh renderer) without
-    /// any changes on the C# side.
+    /// Mostly used for the electrostatic solver where fields have high gradients.
+    /// This class was added by AI
     /// </summary>
     public sealed class AmrSettings
     {
@@ -490,7 +484,7 @@ namespace TfmrLib.FEM
         public double ErrorTolerance { get; set; } = 0.0;
 
         /// <summary>Require conforming (hanging-node-free) refinement. Must remain true
-        /// for the current C# results pipeline; exposed so the contract is explicit.</summary>
+        /// for the current C# results pipeline.</summary>
         public bool Conforming { get; set; } = true;
     }
 }

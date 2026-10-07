@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace TfmrLib.FEM
 {
-    public class MFEMResultsReader
+    public class NoumenaResultsReader
     {
         public static FEMResults Read(string fileName)
         {

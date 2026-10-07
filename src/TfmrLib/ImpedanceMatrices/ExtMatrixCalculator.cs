@@ -94,7 +94,7 @@ namespace TfmrLib
             L_matrices = new List<(double, Matrix<double>)>();
             R_matrices = new List<(double, Matrix<double>)>();
 
-            var LR_results = MFEMResultsReader.Read(LR_file);
+            var LR_results = NoumenaResultsReader.Read(LR_file);
 
             // Read the L matrices from the output directory and return them as a list of tuples (frequency, L matrix)
             foreach (var sample in LR_results.Coupling.Samples)
@@ -103,7 +103,7 @@ namespace TfmrLib
                 R_matrices.Add((sample.FrequencyHz, sample.ResistanceMatrix));
             }
 
-            var C_results = MFEMResultsReader.Read(C_file);
+            var C_results = NoumenaResultsReader.Read(C_file);
             C_matrix = C_results.Coupling.CapacitanceMatrix;
 
         }

@@ -28,7 +28,7 @@ namespace TfmrLib
         /// Raised for each progress event reported by the FEM solver, so hosts (CLI/UI) can
         /// render them without the solver writing directly to the console.
         /// </summary>
-        public event Action<MFEMProgressEvent>? ProgressChanged;
+        public event Action<NoumenaProgressEvent>? ProgressChanged;
 
         private List<(double, Matrix<double>)> R_matrices = new(); 
 
@@ -47,8 +47,8 @@ namespace TfmrLib
                 };
 
                 if (ProgressChanged is { } handler)
-                    handler(new MFEMProgressEvent(
-                        MFEMProgressEventType.Message,
+                    handler(new NoumenaProgressEvent(
+                        NoumenaProgressEventType.Message,
                         Name: "Gmsh",
                         Level: level,
                         Message: message));
@@ -85,7 +85,7 @@ namespace TfmrLib
         {
             int order = 2;
             GenerateMesh(tfmr, order);
-            var fem = new MFEMProblem();
+            var fem = new NoumenaProblem();
             fem.ProgressChanged += e => ProgressChanged?.Invoke(e);
             fem.AnalysisType = AnalysisType.CouplingMatrix;
             fem.PhysicsType = PhysicsType.Magnetoquasistatics;
@@ -191,7 +191,7 @@ namespace TfmrLib
         {
             int order = 2;
             GenerateMesh(tfmr, order, includeCdrSurfaces: false);
-            var fem = new MFEMProblem();
+            var fem = new NoumenaProblem();
             fem.ProgressChanged += e => ProgressChanged?.Invoke(e);
             fem.AnalysisType = AnalysisType.CouplingMatrix;
             fem.PhysicsType = PhysicsType.Electrostatics;
