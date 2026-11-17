@@ -39,12 +39,6 @@ namespace TfmrLib.FEM
         public List<BoundaryCondition> BoundaryConditions { get; set; } = new List<BoundaryCondition>();
         public List<Scenario> Scenarios { get; set; } = new List<Scenario>();
 
-        /// <summary>
-        /// Populated by <see cref="Solve"/> in derived classes once a solution has been
-        /// computed and (optionally) loaded back from the solver's output.
-        /// </summary>
-        public FEMResults? Results { get; protected set; }
-
         public virtual void Solve()
         {
             throw new NotImplementedException("Solve method not implemented for base FEMProblem class");
