@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CircuitLib;
 
 namespace TfmrLib
 {
@@ -11,13 +12,13 @@ namespace TfmrLib
         Top,
         Bottom
     }
-    
+
     public class WindingSegment
     {
         public int Id { get; internal set; }
         public string Label { get; set; } // e.g. "HV Upper", "HV Lower"
         public Winding ParentWinding { get; internal set; }
-        
+
         // Taps configuration
         public List<TapDefinition> Taps { get; } = new();
 
@@ -26,9 +27,9 @@ namespace TfmrLib
 
         // Convenience properties
         public Node StartNode => Branches.Any() ? Branches[0].StartNode : throw new InvalidOperationException("Segment not initialized");
-        public Node EndNode   => Branches.Any() ? Branches.Last().EndNode : throw new InvalidOperationException("Segment not initialized");
+        public Node EndNode => Branches.Any() ? Branches.Last().EndNode : throw new InvalidOperationException("Segment not initialized");
 
-        public IReadOnlyList<Node> Nodes 
+        public IReadOnlyList<Node> Nodes
         {
             get
             {
@@ -115,7 +116,7 @@ namespace TfmrLib
                 {
                     endNode = graph.CreateNode($"Wdg{parent.Id}_Seg{id}_End");
                 }
-                
+
                 nodes.Add(endNode);
 
                 cuts.Add(totalTurns);
@@ -125,18 +126,15 @@ namespace TfmrLib
                 for (int i = 0; i < cuts.Count - 1; i++)
                 {
                     int startTurn = cuts[i];
-                    int endTurn = cuts[i+1];
+                    int endTurn = cuts[i + 1];
                     int numBranchTurns = endTurn - startTurn;
-                    
+
                     var branch = new Branch(
-                        this, 
-                        i, 
-                        nodes[i], 
-                        nodes[i+1], 
-                        startTurn, 
-                        numBranchTurns
+                        i,
+                        nodes[i],
+                        nodes[i + 1]
                     );
-                    
+
                     Branches.Add(branch);
                     graph.Register(branch);
                 }

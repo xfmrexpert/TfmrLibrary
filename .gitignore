@@ -132,3 +132,6 @@ bin/Debug/
 *.log
 *.pid
 *.pid.lock
+
+# Script garbage
+scripts/output/

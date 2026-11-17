@@ -86,17 +86,6 @@ namespace TfmrLib
             }
         }
 
-        public GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
-        {
-            var rtnLoop = new List<GeomLineLoop>();
-            foreach (var seg in Segments)
-            {
-                if (seg.Geometry != null)
-                    rtnLoop.AddRange(seg.Geometry.GenerateGeometry(ref geometry));
-            }
-            return rtnLoop.ToArray();
-        }
-
         public void AddSegment(WindingSegment segment)
         {
             segment.ParentWinding = this;

@@ -34,7 +34,8 @@ namespace TfmrLib
             {
                 foreach (var segment in winding.Segments)
                 {
-                    
+
+
                 }
             }
             return _matrix;

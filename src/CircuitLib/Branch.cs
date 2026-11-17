@@ -1,14 +1,10 @@
 using System.Collections.Generic;
 
-namespace TfmrLib
+namespace CircuitLib
 {
     public class Branch : IConnectedEntity
     {
-        public WindingSegment ParentSegment { get; }
-        public int Id { get; }
-
-        public int StartTurnIndex { get; }
-        public int NumTurns { get; }
+        public int Id { get; set; }
 
         private Node _startNode;
         private Node _endNode;
@@ -18,14 +14,11 @@ namespace TfmrLib
 
         public IReadOnlyList<Node> Terminals => new[] { _startNode, _endNode };
 
-        public Branch(WindingSegment parent, int id, Node startNode, Node endNode, int startTurn, int numTurns)
+        public Branch(int id, Node startNode, Node endNode)
         {
-            ParentSegment = parent;
             Id = id;
             _startNode = startNode;
             _endNode = endNode;
-            StartTurnIndex = startTurn;
-            NumTurns = numTurns;
         }
 
         public void RepointTerminal(Node oldNode, Node newNode)
@@ -44,13 +37,13 @@ namespace TfmrLib
 
             if (!found)
             {
-                throw new System.Exception($"Branch {Id} of {ParentSegment.Label}: Attempted to repoint a node that isn't attached.");
+                throw new System.Exception($"Branch {Id}: Attempted to repoint a node that isn't attached.");
             }
         }
 
         public override string ToString()
         {
-            return $"{ParentSegment.Label}.Branch[{Id}] (Turns {StartTurnIndex}-{StartTurnIndex + NumTurns})";
+            return $"Branch[{Id}";
         }
     }
 }

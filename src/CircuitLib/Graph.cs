@@ -1,13 +1,18 @@
 ﻿using System.Collections.Generic;
 
-namespace TfmrLib;
+namespace CircuitLib;
 
 // Keeper of the Nodes
 public class Graph
 {
     private int _nextNodeId = 0;
-    private readonly HashSet<Node> _nodes = new();
-    private readonly List<IConnectedEntity> _entities = new();
+    protected readonly HashSet<Node> _nodes = new();
+    public HashSet<Node> Nodes
+    {
+        get => _nodes;
+    }
+
+    protected readonly List<IConnectedEntity> _entities = new();
 
     // node -> incident entities
     private readonly Dictionary<Node, HashSet<IConnectedEntity>> _touches = new();
@@ -64,7 +69,7 @@ public class Graph
         return to;
     }
 
-    // Optional: convenience
+    // For convenience
     public Node Short(Node a, Node b) => a.ConnectTo(b);
 }
 

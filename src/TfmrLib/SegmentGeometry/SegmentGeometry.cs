@@ -41,16 +41,16 @@ namespace TfmrLib
         public Transformer ParentTransformer => ParentWinding?.ParentTransformer;
         public ICore Core => ParentTransformer?.Core;
 
-        protected TagManager Tags =>
-        ParentTransformer?.TagManager
-        ?? throw new InvalidOperationException("TagManager not available (Transformer not set).");
+        // protected TagManager Tags =>
+        // ParentTransformer?.TagManager
+        // ?? throw new InvalidOperationException("TagManager not available (Transformer not set).");
 
         // Internal turn mapping structures
         protected Dictionary<int, ConductorElectricalLocation> ConductorIndexToElectricalLocation;
         protected Dictionary<ConductorElectricalLocation, int> ElectricalLocationToConductorIndex => ConductorIndexToElectricalLocation.ToDictionary(kv => kv.Value, kv => kv.Key);
 
         protected List<ConductorLocationAxi> _conductorLocations = null;
-        protected List<ConductorLocationAxi> ConductorLocations
+        public List<ConductorLocationAxi> ConductorLocations
         {
             get
             {
@@ -91,8 +91,6 @@ namespace TfmrLib
         }
 
         protected abstract void ComputeConductorLocations();
-
-        public abstract GeomLineLoop[] GenerateGeometry(ref Geometry geometry);
 
         public abstract Matrix<double> Calc_Rmatrix(double f = 60);
 

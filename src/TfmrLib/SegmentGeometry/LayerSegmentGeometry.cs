@@ -45,14 +45,6 @@ namespace TfmrLib
             }
         }
 
-        public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
-        {
-            var wdg_rect = geometry.AddRectangle(InnerRadius_mm + SegmentRadialBuild_mm / 2, SegmentHeight_mm / 2 + DistanceAboveBottomYoke_mm - Core.WindowHeight_mm / 2, SegmentHeight_mm, SegmentRadialBuild_mm);
-            var rtn_loops = new GeomLineLoop[1];
-            rtn_loops[0] = wdg_rect;
-            return rtn_loops;
-        }
-
         public override Matrix<double> Calc_Rmatrix(double f = 60)
         {
             throw new NotImplementedException();

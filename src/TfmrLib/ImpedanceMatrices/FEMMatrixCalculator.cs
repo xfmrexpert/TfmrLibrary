@@ -1,21 +1,22 @@
-﻿using GeometryLib;
-using MathNet.Numerics.Data.Text;
-using MathNet.Numerics.LinearAlgebra;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Net;
+using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using TfmrLib.FEM;
+using GeometryLib;
+using MathNet.Numerics.Data.Text;
+using MathNet.Numerics.LinearAlgebra;
 using MeshLib;
+using TfmrLib.FEM;
+using TfmrLib.TransientModels;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
-using System.Numerics;
-using System.ComponentModel.DataAnnotations;
-using System.Net;
-using System.Globalization;
 
 namespace TfmrLib
 {
@@ -30,9 +31,9 @@ namespace TfmrLib
         /// </summary>
         public event Action<NoumenaProgressEvent>? ProgressChanged;
 
-        private List<(double, Matrix<double>)> R_matrices = new(); 
+        private List<(double, Matrix<double>)> R_matrices = new();
 
-        private void GenerateMesh(Transformer tfmr, int meshorder = 2, bool includeCdrSurfaces = true)
+        private void GenerateMesh(TransientModelGeometryFactory model, int meshorder = 2, bool includeCdrSurfaces = true)
         {
             var meshGen = new MeshGenerator();
             meshGen.OutputReceived += message =>
@@ -55,11 +56,11 @@ namespace TfmrLib
                 else
                     Console.WriteLine(message);
             };
-            var geometry = tfmr.GenerateGeometry();
+            var geometry = model.Geometry;
             double meshscale = 10.0;
             Func<GeomSurface, bool> includeSurface = surface =>
                 includeCdrSurfaces ||
-                !tfmr.TagManager.TryGetLocationByTag(surface.Tag, out _, out var tagType) ||
+                !model.TagManager.TryGetLocationByTag(surface.Tag, out _, out var tagType) ||
                 tagType != TagType.ConductorSurface;
 
             meshGen.AddGeometry(geometry, includeSurface);
@@ -84,7 +85,9 @@ namespace TfmrLib
         public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FrequencySpec freq)
         {
             int order = 2;
-            GenerateMesh(tfmr, order);
+            var model = new TransientModelGeometryFactory();
+            model.BuildGeometry(tfmr);
+            GenerateMesh(model, order);
             var fem = new NoumenaProblem();
             fem.ProgressChanged += e => ProgressChanged?.Invoke(e);
             fem.AnalysisType = AnalysisType.CouplingMatrix;
@@ -124,10 +127,11 @@ namespace TfmrLib
             fem.Materials.Add(paper);
             fem.Materials.Add(copper);
             fem.Materials.Add(aluminum);
-            fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
+
+            fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { model.TagManager.GetTagByString("InteriorDomain") } });
             fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
-            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreFacsimile", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreFacsimile")}});
-            fem.Regions.Add(new Region() { Name = "Core", EntityGroupName = "CoreFacsimile", Material = aluminum});
+            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreFacsimile", Dimension = 2, AttributeIds = new List<int>() { model.TagManager.GetTagByString("CoreFacsimile") } });
+            fem.Regions.Add(new Region() { Name = "Core", EntityGroupName = "CoreFacsimile", Material = aluminum });
 
             //fem.EntityGroups.Add(new EntityGroup() { Name = "CoreLeg", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg") } });
             //fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreLeg", EntityGroupName = "CoreLeg", Potential = 0.0 });
@@ -148,9 +152,9 @@ namespace TfmrLib
                             for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
                             {
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
-                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
+                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { model.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
                                 var regionIns = new Region() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
-                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) } };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { model.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) } };
                                 var regionCond = new Region() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name, Material = copper };
                                 fem.EntityGroups.Add(groupIns);
                                 fem.EntityGroups.Add(groupCond);
@@ -183,14 +187,16 @@ namespace TfmrLib
             {
                 R_matrices.Add((sample.FrequencyHz, sample.ResistanceMatrix));
             }
-            
+
             return L_matrices;
         }
 
         public Matrix<double> Calc_Cmatrix(Transformer tfmr)
         {
             int order = 2;
-            GenerateMesh(tfmr, order, includeCdrSurfaces: false);
+            var model = new TransientModelGeometryFactory();
+            model.BuildGeometry(tfmr);
+            GenerateMesh(model, order, includeCdrSurfaces: false);
             var fem = new NoumenaProblem();
             fem.ProgressChanged += e => ProgressChanged?.Invoke(e);
             fem.AnalysisType = AnalysisType.CouplingMatrix;
@@ -214,9 +220,9 @@ namespace TfmrLib
 
             fem.Materials.Add(oil);
             fem.Materials.Add(paper);
-            fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { model.TagManager.GetTagByString("InteriorDomain") } });
             fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
-            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreBdry", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg_Outer") } });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "CoreBdry", Dimension = 1, AttributeIds = new List<int>() { model.TagManager.GetTagByString("CoreLeg_Outer") } });
             fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "CoreBdry", EntityGroupName = "CoreBdry", Potential = 0.0 });
             //fem.EntityGroups.Add(new EntityGroup() { Name = "Dirichlet", Dimension = 1, AttributeIds = new List<int>() { /* tfmr.TagManager.GetTagByString("CoreLeg"),  */tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
             //fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "Dirichlet", Potential = 0.0 });
@@ -235,9 +241,9 @@ namespace TfmrLib
                             for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
                             {
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
-                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
+                                var groupIns = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { model.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } };
                                 var regionIns = new Region() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = groupIns.Name, Material = paper };
-                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
+                                var groupCond = new EntityGroup() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 1, AttributeIds = new List<int>() { model.TagManager.GetTagByLocation(locKey, TagType.ConductorBoundary) } };
                                 //var regionCond = new Region() { Name = $"Wdg{wdgNum}Seg{segNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = groupCond.Name, Material = copper };
                                 fem.EntityGroups.Add(groupIns);
                                 fem.EntityGroups.Add(groupCond);

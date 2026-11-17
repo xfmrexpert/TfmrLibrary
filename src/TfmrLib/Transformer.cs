@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using CircuitLib;
 using GeometryLib;
 using MathNet.Numerics.LinearAlgebra;
 
@@ -20,7 +21,7 @@ namespace TfmrLib
             }
         }
 
-        public TagManager TagManager { get; } = new();  // Scoped to this transformer
+        //public TagManager TagManager { get; } = new();  // Scoped to this transformer
 
         public Graph Graph { get; } = new();
 
@@ -105,26 +106,6 @@ namespace TfmrLib
             {
                 return Windings.Sum(wdg => wdg.NumConductors);
             }
-        }
-
-        public Geometry GenerateGeometry()
-        {
-            var geometry = new Geometry();
-            TagManager.ClearTags();
-
-            var outer_bdry = Core.GenerateGeometry(ref geometry);
-
-            List<GeomLineLoop> conductorins_bdrys = new List<GeomLineLoop>();
-
-            foreach (Winding wdg in Windings)
-            {
-                conductorins_bdrys.AddRange(wdg.GenerateGeometry(ref geometry));
-            }
-
-            var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys.ToArray());
-            TagManager.TagEntityByString(interior_surface, "InteriorDomain");
-
-            return geometry;
         }
 
         public Graph GenerateExtendedGraph()

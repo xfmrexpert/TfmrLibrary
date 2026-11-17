@@ -60,7 +60,8 @@ namespace TfmrLib
             {
                 // Even disc: wound outside→inside, reverse the layer order
                 layer = turnsPerLayer - 1 - positionInDisc;
-            } else
+            }
+            else
             {
                 // Odd disc: wound inside→outside
                 layer = positionInDisc;
@@ -113,7 +114,8 @@ namespace TfmrLib
             {
                 z_mid = DistanceAboveBottomYoke_mm + SegmentHeight_mm - ConductorType.TotalHeight_mm / 2; //Turn 0
                 windingDirection = -1; // Winding segment goes from top to bottom
-            } else
+            }
+            else
             {
                 z_mid = DistanceAboveBottomYoke_mm + ConductorType.TotalHeight_mm / 2; // Turn 0
                 windingDirection = 1; // Winding segment goes from bottom to top
@@ -156,7 +158,8 @@ namespace TfmrLib
                     double partialTurnFraction = (turnsInThisDisc - Math.Floor(turnsInThisDisc)) / 2; // Fraction of a turn at start or end of disc
                     if (partialTurnFraction == 0) partialTurnFraction = 1.0;
                     turn_length = 2.0 * Math.PI * r_mid * partialTurnFraction;
-                } else
+                }
+                else
                 {
                     turn_length = 2.0 * Math.PI * r_mid;
                 }
@@ -164,57 +167,6 @@ namespace TfmrLib
                 _conductorLocations.Add(new ConductorLocationAxi(r_mid, z_mid, turn_length));
             }
         }
-
-        public override GeomLineLoop[] GenerateGeometry(ref Geometry geometry)
-        {
-            bool include_ins = true;
-            // It appears as though I established the z_offset to half of the winding height.  Why?  No idea.
-            double z_offset = Core.WindowHeight_mm / 2;
-
-            // Note: The number of total turns in a winding may differ from the number of turns in an axisymmetric section
-            // because of partial turns (ie. the disc cross-overs may not be axially aligned).
-
-            // Setup conductor and insulation boundaries
-            // Loop through conductors in logical order and tag them using the turn map
-            int totalConductors = NumDiscs * TurnsPerDisc * NumParallelConductors;
-
-            if (_conductorLocations == null) ComputeConductorLocations();
-            if (_conductorLocations.Count != totalConductors)
-                throw new InvalidOperationException($"Conductor location count {_conductorLocations.Count} does not match expected number of conductor positions {totalConductors}.");
-
-            // Setup conductor and insulation boundaries
-            var conductorins_bdrys = new GeomLineLoop[totalConductors];
-
-            for (int conductorIndex = 0; conductorIndex < totalConductors; conductorIndex++)
-            {
-                var logical = GetElectricalLocation(conductorIndex);
-                var location = _conductorLocations[conductorIndex];
-                var locationKey = new LocationKey(ParentWinding.Id, ParentSegment.Id, logical.Turn, logical.Strand);
-
-                var (conductorBoundary, insulationBoundary) = ConductorType.CreateGeometry(ref geometry, location.RadialPosition_mm, location.AxialPosition_mm - z_offset);
-
-                Tags.TagEntityByLocation(conductorBoundary, locationKey, TagType.ConductorBoundary);
-                Tags.TagEntityByLocation(insulationBoundary, locationKey, TagType.InsulationBoundary);
-
-                if (include_ins)
-                {
-                    var insulation_surface = geometry.AddSurface(insulationBoundary, conductorBoundary);
-                    Tags.TagEntityByLocation(insulation_surface, locationKey, TagType.InsulationSurface);
-                    conductorins_bdrys[conductorIndex] = insulationBoundary;
-                } else
-                {
-                    conductorins_bdrys[conductorIndex] = conductorBoundary;
-                }
-
-                // 2D region that is conductor interior
-                var conductor_surface = geometry.AddSurface(conductorBoundary);
-                Tags.TagEntityByLocation(conductor_surface, locationKey, TagType.ConductorSurface);
-            }
-
-            // Return outer boundary of conductor representations to allow "holes" in the remainder of the geometry
-            return conductorins_bdrys;
-        }
-
 
         public override Matrix<double> Calc_Rmatrix(double f = 60)
         {

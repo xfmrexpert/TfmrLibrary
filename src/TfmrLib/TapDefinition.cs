@@ -1,3 +1,5 @@
+using CircuitLib;
+
 namespace TfmrLib
 {
     public class TapDefinition

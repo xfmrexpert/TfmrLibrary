@@ -1,4 +1,4 @@
-﻿namespace TfmrLib
+﻿namespace CircuitLib
 {
     public class Node
     {
