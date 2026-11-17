@@ -25,43 +25,12 @@ namespace TfmrLib
         private Mesh mesh;
         private string meshFile;
 
-        /// <summary>
-        /// Raised for each progress event reported by the FEM solver, so hosts (CLI/UI) can
-        /// render them without the solver writing directly to the console.
-        /// </summary>
-        public event Action<NoumenaProgressEvent>? ProgressChanged;
-
         private List<(double, Matrix<double>)> R_matrices = new();
 
         private void GenerateMesh(TransientModelGeometryFactory model, int meshorder = 2, bool includeCdrSurfaces = true)
         {
             var meshGen = new MeshGenerator();
-            meshGen.OutputReceived += message =>
-            {
-                var level = message.TrimStart() switch
-                {
-                    var text when text.StartsWith("Error", StringComparison.OrdinalIgnoreCase)
-                        => "error",
-                    var text when text.StartsWith("Warning", StringComparison.OrdinalIgnoreCase)
-                        => "warning",
-                    _ => "info"
-                };
-
-                if (ProgressChanged is { } handler)
-                    handler(new NoumenaProgressEvent(
-                        NoumenaProgressEventType.Message,
-                        Name: "Gmsh",
-                        Level: level,
-                        Message: message));
-                else
-                    Console.WriteLine(message);
-            };
             var geometry = model.Geometry;
-            double meshscale = 10.0;
-            Func<GeomSurface, bool> includeSurface = surface =>
-                includeCdrSurfaces ||
-                !model.TagManager.TryGetLocationByTag(surface.Tag, out _, out var tagType) ||
-                tagType != TagType.ConductorSurface;
 
             meshGen.AddGeometry(geometry, includeSurface);
             var geoFile = "case.geo";

@@ -1,4 +1,3 @@
-using netDxf.Collections;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,77 +8,25 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
+using netDxf.Collections;
 
 namespace TfmrLib.FEM
 {
-    public enum NoumenaProgressEventType
-    {
-        Operation,
-        Message
-    }
-
-    public sealed record NoumenaProgressEvent(
-        NoumenaProgressEventType EventType,
-        string? Name = null,
-        string? State = null,
-        double? ElapsedSeconds = null,
-        string? Level = null,
-        string? Message = null);
-
     public class NoumenaProblem : FEMProblem
     {
         public string Filename { get; set; } = "case.json";
 
-        public event Action<NoumenaProgressEvent>? ProgressChanged;
-
-        /// <summary>
-        /// Optional adaptive mesh refinement (AMR) configuration. When non-null and
-        /// <see cref="AmrSettings.Enabled"/> is true, an <c>"amr"</c> block is written
-        /// into the <c>"simulation"</c> section of the solver's case.json so the
-        /// Noumena solver runs its estimate→mark→refine→re-solve loop and writes
-        /// the final refined mesh + fields back through the usual results.msh contract.
-        /// Null (the default) reproduces the previous single-solve behaviour exactly.
-        /// </summary>
-        public AmrSettings? Amr { get; set; }
-
-        /// <summary>
-        /// File the solver will write results to (HDF5 format only for now). Defaults to
-        /// "&lt;MeshFile-without-extension&gt;.results.h5" (the solver writes its output
-        /// next to the input mesh, not next to the case JSON).
-        /// </summary>
         public string? ResultsFile { get; set; }
-
-        /// <summary>
-        /// Last error reported while loading the solver's output (or null on success).
-        /// Useful for surfacing the reason no <see cref="FEMProblem.Solution"/> was set
-        /// after <see cref="Solve"/> returns.
-        /// </summary>
-        public string? LastLoadError { get; private set; }
 
         private string FindNoumenaExecutable()
         {
-            // Allow developer override (e.g. point at the CMake build output).
-            var fromEnv = Environment.GetEnvironmentVariable("NOUMENA_EXE");
-            if (!string.IsNullOrWhiteSpace(fromEnv) && File.Exists(fromEnv))
-                return fromEnv;
-
             return "noumena";
         }
 
         private void WriteNoumenaFile()
         {
-            // The solver resolves a relative "mesh" path relative to the case.json's own
-            // directory, which is not necessarily where the mesh lives (e.g. a build-once /
-            // solve-many flow writes one mesh but a per-scenario case.json in a subfolder).
-            // Emit an absolute path so it resolves regardless of the JSON's location, and
-            // use forward slashes so the string needs no backslash escaping in JSON.
             var meshPath = MeshPath;
-            if (!string.IsNullOrEmpty(meshPath))
-                meshPath = Path.GetFullPath(meshPath).Replace('\\', '/');
 
-            // StreamWriter creates the file but not its parent directory, so make sure
-            // the target folder exists (e.g. a relative "./Results/..." path under the
-            // process working directory) before opening it.
             var caseDir = Path.GetDirectoryName(Path.GetFullPath(Filename));
             if (!string.IsNullOrEmpty(caseDir))
                 Directory.CreateDirectory(caseDir);
@@ -97,7 +44,7 @@ namespace TfmrLib.FEM
             {
                 writer.WriteStartObject();
                 writer.WriteStartObject("simulation");
-                writer.WriteString("physics_type",PhysicsType.ToString().ToLower());
+                writer.WriteString("physics_type", PhysicsType.ToString().ToLower());
                 writer.WriteString("analysis_type", AnalysisType switch { AnalysisType.Field => "field", AnalysisType.CouplingMatrix => "coupling_matrix", _ => AnalysisType.ToString().ToLowerInvariant() });
                 writer.WriteString("geometry_type", GeometryType.ToString().ToLower());
                 writer.WriteString("mesh", meshPath);
@@ -106,24 +53,6 @@ namespace TfmrLib.FEM
                 writer.WriteNumber("solver_max_iter", 2000);
                 writer.WriteNumber("solver_print_level", 1);
 
-                // The "amr" block is emitted only when adaptive refinement is requested,
-                // so older solver builds (and the default config) see the exact JSON they
-                // saw before. When present, "output_gmsh" gains a trailing comma so the
-                // block remains valid JSON.
-                bool emitAmr = Amr is { Enabled: true };
-                if (emitAmr)
-                {
-                    var inv = System.Globalization.CultureInfo.InvariantCulture;
-                    var amr = Amr!;
-                    writer.WriteStartObject("amr");
-                    writer.WriteBoolean("enabled", true);
-                    writer.WriteNumber("max_iterations", amr.MaxIterations);
-                    writer.WriteNumber("max_dofs", amr.MaxDofs);
-                    writer.WriteNumber("error_fraction", amr.ErrorFraction);
-                    writer.WriteNumber("error_tolerance", amr.ErrorTolerance);
-                    writer.WriteBoolean("conforming", amr.Conforming);
-                    writer.WriteEndObject(); // end of amr block
-                }
                 writer.WriteEndObject(); // end of simulation block
                 writer.WriteStartObject("output");
                 writer.WriteBoolean("export_fields_for_coupling_matrix", false);
@@ -150,7 +79,7 @@ namespace TfmrLib.FEM
                 foreach (var material in Materials)
                 {
                     writer.WriteStartObject();
-                    writer.WriteString("name",material.Name);
+                    writer.WriteString("name", material.Name);
                     writer.WriteStartObject("properties");
                     foreach (var prop in material.Properties)
                     {
@@ -250,61 +179,30 @@ namespace TfmrLib.FEM
 
         public override void Solve()
         {
-            ReportMessage("status", "Solving...");
-            string noumena_exe = FindNoumenaExecutable();
-            ReportMessage("status", $"Using Noumena at: {noumena_exe}");
-
             WriteNoumenaFile();
 
             string args = $"{Filename}";
 
             using var process = new Process();
-            process.StartInfo.FileName = noumena_exe;
+            process.StartInfo.FileName = "noumena";
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.RedirectStandardError = true;
             process.StartInfo.ArgumentList.Add(Filename);
-            process.StartInfo.ArgumentList.Add("--machine-readable");
 
             var output = new StringBuilder();
             var errors = new List<string>();
             var stderr = new StringBuilder();
 
-            ReportMessage("status", $"Running (background): {noumena_exe} {Filename} --machine-readable");
             process.Start();
 
-            Task stdoutTask = ReadStandardOutputAsync(process.StandardOutput, output, errors);
-            Task stderrTask = ReadStandardErrorAsync(process.StandardError, stderr);
             Task exitTask = process.WaitForExitAsync();
-
-            //if (!exitTask.Wait(TimeSpan.FromMinutes(6)))
-            //{
-            //    if (!process.HasExited)
-            //        process.Kill(entireProcessTree: true);
-            //    process.WaitForExit();
-            //    Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
-            //    throw new TimeoutException("Noumena was terminated after exceeding the six-minute timeout.");
-            //}
 
             Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
 
             if (process.ExitCode != 0)
             {
-                string detail = errors.Count > 0
-                    ? string.Join(Environment.NewLine, errors)
-                    : stderr.ToString().TrimEnd();
-
-                if (detail.Length == 0)
-                    detail = output.ToString().TrimEnd();
-
-                const int maxTail = 4000;
-                if (detail.Length > maxTail)
-                    detail = "...(truncated)..." + Environment.NewLine + detail[^maxTail..];
-
-                string message = $"Failed to run Noumena (exit {process.ExitCode}).";
-                if (detail.Length > 0)
-                    message += $"{Environment.NewLine}{detail}";
                 throw new Exception(message);
             }
             else
@@ -312,114 +210,6 @@ namespace TfmrLib.FEM
                 TryLoadSolution();
             }
 
-        }
-
-        private async Task ReadStandardOutputAsync(
-            StreamReader reader,
-            StringBuilder output,
-            List<string> errors)
-        {
-            while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
-            {
-                output.AppendLine(line);
-
-                // Non machine-readable lines (e.g. banners from linked libraries) are still
-                // surfaced, but as progress messages so the host controls how they are shown.
-                if (!TryParseProgress(line, out NoumenaProgressEvent? progress))
-                {
-                    if (!string.IsNullOrWhiteSpace(line))
-                        ReportMessage("diagnostic", line);
-                    continue;
-                }
-
-                if (progress.Level == "error" && !string.IsNullOrWhiteSpace(progress.Message))
-                    errors.Add(progress.Message);
-
-                ProgressChanged?.Invoke(progress);
-            }
-        }
-
-        private async Task ReadStandardErrorAsync(StreamReader reader, StringBuilder stderr)
-        {
-            while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
-            {
-                stderr.AppendLine(line);
-                if (!string.IsNullOrWhiteSpace(line))
-                    ReportMessage("warning", line);
-            }
-        }
-
-        private void ReportMessage(string level, string message) =>
-            ProgressChanged?.Invoke(new NoumenaProgressEvent(
-                NoumenaProgressEventType.Message,
-                Level: level,
-                Message: message));
-
-        private bool TryParseProgress(string line, out NoumenaProgressEvent? progress)
-        {
-            progress = null;
-
-            try
-            {
-                using JsonDocument document = JsonDocument.Parse(line);
-                JsonElement root = document.RootElement;
-                if (!root.TryGetProperty("event", out JsonElement eventElement) ||
-                    eventElement.ValueKind != JsonValueKind.String)
-                    return false;
-
-                switch (eventElement.GetString())
-                {
-                    case "operation":
-                        if (!TryGetString(root, "name", out string? name) ||
-                            !TryGetString(root, "state", out string? state) ||
-                            state is not ("started" or "completed" or "failed"))
-                            return false;
-
-                        double? elapsedSeconds = null;
-                        if (root.TryGetProperty("elapsed_seconds", out JsonElement elapsedElement) &&
-                            elapsedElement.ValueKind == JsonValueKind.Number &&
-                            elapsedElement.TryGetDouble(out double elapsed))
-                            elapsedSeconds = elapsed;
-
-                        progress = new NoumenaProgressEvent(
-                            NoumenaProgressEventType.Operation,
-                            Name: name,
-                            State: state,
-                            ElapsedSeconds: elapsedSeconds);
-                        return true;
-
-                    case "message":
-                        if (!TryGetString(root, "level", out string? level) ||
-                            !TryGetString(root, "message", out string? message) ||
-                            level is not ("status" or "solver" or "diagnostic" or "warning" or "error"))
-                            return false;
-
-                        progress = new NoumenaProgressEvent(
-                            NoumenaProgressEventType.Message,
-                            Level: level,
-                            Message: message);
-                        return true;
-
-                    default:
-                        return false;
-                }
-            }
-            catch (JsonException exception)
-            {
-                ReportMessage("warning", $"Malformed Noumena machine-readable output: {exception.Message}");
-                return false;
-            }
-        }
-
-        private static bool TryGetString(JsonElement element, string propertyName, out string? value)
-        {
-            value = null;
-            if (!element.TryGetProperty(propertyName, out JsonElement property) ||
-                property.ValueKind != JsonValueKind.String)
-                return false;
-
-            value = property.GetString();
-            return value != null;
         }
 
         public void TryLoadSolution()
@@ -451,40 +241,5 @@ namespace TfmrLib.FEM
             }
         }
 
-    }
-
-    /// <summary>
-    /// Configuration for the Noumena solver's adaptive mesh refinement (AMR)
-    /// loop. The solver estimates a per-element error (Zienkiewicz–Zhu on the recovered
-    /// E-field), marks the worst elements, performs a <b>conforming</b> triangular
-    /// refinement (no hanging nodes), and re-solves until a stopping criterion is met.
-    /// Mostly used for the electrostatic solver where fields have high gradients.
-    /// This class was added by AI
-    /// </summary>
-    public sealed class AmrSettings
-    {
-        /// <summary>Master switch. When false, no <c>"amr"</c> block is emitted and the
-        /// solver performs its usual single solve on the supplied mesh.</summary>
-        public bool Enabled { get; set; } = false;
-
-        /// <summary>Maximum number of refine→re-solve iterations.</summary>
-        public int MaxIterations { get; set; } = 5;
-
-        /// <summary>Stop once the global degrees of freedom exceed this budget (safety
-        /// cap against runaway refinement). Non-positive disables the cap.</summary>
-        public long MaxDofs { get; set; } = 2_000_000;
-
-        /// <summary>Fraction of the total error used by the bulk (Dörfler) marking
-        /// strategy: mark the smallest set of elements whose summed error reaches this
-        /// fraction of the total. Range (0, 1]; smaller refines more conservatively.</summary>
-        public double ErrorFraction { get; set; } = 0.7;
-
-        /// <summary>Optional absolute stopping tolerance on the global estimated error.
-        /// Non-positive means "ignore" (rely on iteration / DOF caps instead).</summary>
-        public double ErrorTolerance { get; set; } = 0.0;
-
-        /// <summary>Require conforming (hanging-node-free) refinement. Must remain true
-        /// for the current C# results pipeline.</summary>
-        public bool Conforming { get; set; } = true;
     }
 }
