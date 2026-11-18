@@ -41,8 +41,8 @@ namespace TfmrLib
 
             int numSpacers = NumMechTurns - 1; // Spacers between each turn
 
-            using var gapEnum = SpacerPattern.GetGapEnumerator(numSpacers, SpacerPatternExhaustedBehavior.Throw);
-            bool hasNextGap = false;
+            using var spacerEnum = SpacerPattern.GetEnumerator();
+            bool hasNextSpacer = false;
 
             int wdg_direction;
             double z_mid;
@@ -62,10 +62,10 @@ namespace TfmrLib
                 double gap = 0.0;
                 if (turn > 0)
                 {
-                    hasNextGap = gapEnum.MoveNext();
-                    if (!hasNextGap)
+                    hasNextSpacer = spacerEnum.MoveNext();
+                    if (!hasNextSpacer)
                         throw new InvalidOperationException($"Spacer pattern ended prematurely at turn {turn}.");
-                    gap = gapEnum.Current;
+                    gap = spacerEnum.Current.SpacerHeight_mm;
                 }
 
                 if (ParallelOrientation == Orientation.Radial)

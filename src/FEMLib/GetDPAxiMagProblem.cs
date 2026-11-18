@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public class GetDPAxiMagProblem : GetDPProblem
     {

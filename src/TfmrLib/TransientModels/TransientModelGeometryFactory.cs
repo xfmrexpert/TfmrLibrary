@@ -70,6 +70,7 @@ namespace TfmrLib.TransientModels
 
             // Setup conductor and insulation boundaries
             // Loop through conductors in logical order and tag them using the turn map
+            // TODO: This should be on DiscSegmentGeometry, no?
             int totalConductors = seg.NumDiscs * seg.TurnsPerDisc * seg.NumParallelConductors;
 
             if (seg.ConductorLocations.Count != totalConductors)
@@ -109,6 +110,7 @@ namespace TfmrLib.TransientModels
             return conductorins_bdrys;
         }
 
+        // TODO: This needs to be modified to use ConductorLocations
         public GeomLineLoop[] CreateGeometry(HelicalSegmentGeometry seg)
         {
             bool include_ins = true;
@@ -136,18 +138,18 @@ namespace TfmrLib.TransientModels
 
             int numSpacers = seg.NumMechTurns - 1; // Spacers between each turn
 
-            using var gapEnum = seg.SpacerPattern.GetGapEnumerator(numSpacers, SpacerPatternExhaustedBehavior.Throw);
-            bool hasNextGap = false;
+            using var spacerEnum = seg.SpacerPattern.GetEnumerator();
+            bool hasNextSpacer = false;
 
             for (int turn = 0; turn < seg.NumMechTurns; turn++)
             {
                 double gap = 0.0;
                 if (turn > 0)
                 {
-                    hasNextGap = gapEnum.MoveNext();
-                    if (!hasNextGap)
+                    hasNextSpacer = spacerEnum.MoveNext();
+                    if (!hasNextSpacer)
                         throw new InvalidOperationException($"Spacer pattern ended prematurely at turn {turn}.");
-                    gap = gapEnum.Current;
+                    gap = spacerEnum.Current.SpacerHeight_mm;
                 }
 
                 if (seg.ParallelOrientation == Orientation.Radial)

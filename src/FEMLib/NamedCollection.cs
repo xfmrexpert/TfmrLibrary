@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public class NamedCollection<T> : IEnumerable<T> where T : INamed
     {

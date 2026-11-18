@@ -621,10 +621,10 @@ namespace TfmrLib
                                         NumSpacers_Circumference = 32,
                                         Elements = new List<SpacerPatternElement>
                                         {
-                                            new CompositeSpacerPatternElement { Count = 4, SubElements=[new () { Count = 1, SpacerHeight_mm = 4.2 }, new() { Count = 1, SpacerHeight_mm = 6.4 }] },
+                                            new CompositeSpacerPatternElement { RepetitionCount = 4, SubElements=[new () { Count = 1, SpacerHeight_mm = 4.2 }, new() { Count = 1, SpacerHeight_mm = 6.4 }] },
                                             new() { Count = 1, SpacerHeight_mm = 5.3 },
                                             //new() { Count = 2, SpacerHeight_mm = 10.6 },
-                                            new CompositeSpacerPatternElement { Count = 2, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
+                                            new CompositeSpacerPatternElement { RepetitionCount = 2, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
                                             new() { Count = 4, SpacerHeight_mm = 4.2 },
                                             new() { Count = 1, SpacerHeight_mm = 5.3 },
                                             new() { Count = 6, SpacerHeight_mm = 4.2 },
@@ -635,7 +635,7 @@ namespace TfmrLib
                                             new() { Count = 1, SpacerHeight_mm = 5.3 },
                                             new() { Count = 4, SpacerHeight_mm = 4.2 },
                                             //new() { Count = 7, SpacerHeight_mm = 10.6 }
-                                            new CompositeSpacerPatternElement { Count = 7, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
+                                            new CompositeSpacerPatternElement { RepetitionCount = 7, SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }] },
                                         }
                                     },
                                     InnerRadius_mm = 1242.0/2,
@@ -665,7 +665,7 @@ namespace TfmrLib
                                             //new() { Count = 7, SpacerHeight_mm = 10.6 },
                                             new CompositeSpacerPatternElement
                                             {
-                                                Count = 7,
+                                                RepetitionCount = 7,
                                                 SubElements=[new () { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }]
                                             },
                                             new() { Count = 4, SpacerHeight_mm = 4.2 },
@@ -680,14 +680,14 @@ namespace TfmrLib
                                             //new() { Count = 2, SpacerHeight_mm = 10.6 },
                                             new CompositeSpacerPatternElement
                                             {
-                                                Count = 2,
+                                                RepetitionCount = 2,
                                                 SubElements=[new() { Count = 1, SpacerHeight_mm = 6.4 }, new() { Count = 1, SpacerHeight_mm = 4.2 }]
                                             },
                                             new() { Count = 1, SpacerHeight_mm = 5.3 },
                                             //new() { Count = 4, SpacerHeight_mm = 10.6 }
                                             new CompositeSpacerPatternElement
                                             {
-                                                Count = 4,
+                                                RepetitionCount = 4,
                                                 SubElements=[new() { Count = 1, SpacerHeight_mm = 4.2 }, new() { Count = 1, SpacerHeight_mm = 6.4 }]
                                             },
                                         }

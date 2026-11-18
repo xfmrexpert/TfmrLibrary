@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using TfmrLib; //For Constants
 
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public class GetDPAxiElecProblem : GetDPProblem
     {

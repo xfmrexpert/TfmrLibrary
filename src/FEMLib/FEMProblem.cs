@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public enum GeometryType
     {

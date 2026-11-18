@@ -1,11 +1,12 @@
-﻿using MathNet.Numerics.LinearAlgebra;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using LinAlg = MathNet.Numerics.LinearAlgebra;
+using FEMLib; //Needed for frequency sweep definition
+using MathNet.Numerics.LinearAlgebra;
 using TfmrLib;
+using LinAlg = MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib
 {
@@ -14,10 +15,10 @@ namespace TfmrLib
         //PUL Inductances
         public Matrix<double> Calc_Lmatrix(Transformer tfmr, double freq)
         {
-            return Calc_Lmatrix(tfmr, new FEM.FrequencySpec.Scalar(freq)).First().Item2;
+            return Calc_Lmatrix(tfmr, new FrequencySpec.Scalar(freq)).First().Item2;
         }
 
-        public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FEM.FrequencySpec freq)
+        public List<(double, Matrix<double>)> Calc_Lmatrix(Transformer tfmr, FrequencySpec freq)
         {
             int total_conductors = 0;
             foreach (Winding wdg in tfmr.Windings)
@@ -255,7 +256,7 @@ namespace TfmrLib
             return C;
         }
 
-        public List<(double, Matrix<double>)> Calc_Rmatrix(Transformer tfrm, FEM.FrequencySpec freq)
+        public List<(double, Matrix<double>)> Calc_Rmatrix(Transformer tfrm, FrequencySpec freq)
         {
             return null;
         }

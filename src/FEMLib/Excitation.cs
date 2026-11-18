@@ -1,4 +1,4 @@
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public class Excitation
     {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FEM = FEMLib; //Needed for FrequencySpec
 using LinAlg = MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib

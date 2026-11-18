@@ -126,8 +126,8 @@ namespace TfmrLib
             int logicalTurn = 0;
 
             // We need NumDiscs - 1 inter-disc gaps.
-            using var gapEnum = SpacerPattern.GetGapEnumerator(NumDiscs - 1, SpacerPatternExhaustedBehavior.Throw);
-            bool hasNextGap = false;
+            using var spacerEnum = SpacerPattern.GetEnumerator();
+            bool hasNextSpacer = false;
 
             for (int conductorIndex = 0; conductorIndex < totalConductors; conductorIndex++)
             {
@@ -136,9 +136,9 @@ namespace TfmrLib
                 // Update z position when moving to new disc
                 if (conductorIndex > 0 && disc > GetPhysicalPosition(conductorIndex - 1).Disc)
                 {
-                    if (gapEnum.MoveNext())
+                    if (spacerEnum.MoveNext())
                     {
-                        double gap = gapEnum.Current;
+                        double gap = spacerEnum.Current.SpacerHeight_mm;
                         z_mid += windingDirection * (ConductorType.TotalHeight_mm + gap);
                     }
                 }

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public abstract record FrequencySpec
     {

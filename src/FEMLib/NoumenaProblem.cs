@@ -10,13 +10,15 @@ using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 using netDxf.Collections;
 
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public class NoumenaProblem : FEMProblem
     {
         public string Filename { get; set; } = "case.json";
 
         public string? ResultsFile { get; set; }
+
+        public FEMResults Results { get; private set; }
 
         private string FindNoumenaExecutable()
         {
@@ -199,11 +201,9 @@ namespace TfmrLib.FEM
 
             Task exitTask = process.WaitForExitAsync();
 
-            Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
-
             if (process.ExitCode != 0)
             {
-                throw new Exception(message);
+                throw new Exception("No beuno. Noumena shit the bed.");
             }
             else
             {
@@ -214,30 +214,23 @@ namespace TfmrLib.FEM
 
         public void TryLoadSolution()
         {
-            LastLoadError = null;
-
             if (string.IsNullOrEmpty(ResultsFile))
             {
-                LastLoadError = "ResultsFile was not set.";
-                ReportMessage("error", LastLoadError);
-                return;
+                throw new Exception("ResultsFile was not set");
             }
 
             if (!File.Exists(ResultsFile))
             {
-                ReportMessage("error", $"Results file '{ResultsFile}' not found.");
-                return;
+                throw new Exception("ResultsFile doesn't exist");
             }
 
             try
             {
                 Results = NoumenaResultsReader.Read(ResultsFile);
-                ReportMessage("status", $"Read FEM results from {ResultsFile} ");
             }
             catch (Exception ex)
             {
-                LastLoadError = $"Failed to load FEM results from '{ResultsFile}': {ex.Message}";
-                ReportMessage("error", LastLoadError);
+                throw new Exception("Failed to load FEM results from '{ResultsFile}': {ex.Message}");
             }
         }
 

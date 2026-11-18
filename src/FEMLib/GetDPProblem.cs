@@ -7,11 +7,12 @@ using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.Data.Text;
 using MathNet.Numerics.LinearAlgebra;
+using TfmrLib;
 using TfmrLib.TransientModels;
 using LinAlg = MathNet.Numerics.LinearAlgebra;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
-namespace TfmrLib.FEM
+namespace FEMLib
 {
     public class GetDPProblem : FEMProblem
     {
